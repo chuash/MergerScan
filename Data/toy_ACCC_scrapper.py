@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List
 
 # list of user agents to be used when executing html request
-user_agents = [
+_user_agents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
@@ -21,10 +21,8 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
 ]
 
-# https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&items_per_page=25&page=0
-
 # Function to extract titles and first paragraphs from ACCC media press releases
-def get_ACCC_press_release(user_agents:List[str], fromdate: datetime)->pd.DataFrame:
+def get_ACCC_press_release(fromdate: datetime, user_agents:List[str]=_user_agents)->pd.DataFrame:
     # Retrieving the shared logger
     logger = logging.getLogger('shared_app_logger')
     # initialising an empty list to contain the desired media releases
@@ -64,16 +62,19 @@ def get_ACCC_press_release(user_agents:List[str], fromdate: datetime)->pd.DataFr
 
         # convert to dataframe
         df= pd.DataFrame(listing)
+        df= df[pd.to_datetime(df['Published Date']) >= datetime.strptime(fromdate, '%d %b %Y')]
         df.to_csv(f'ACCC_from_{fromdate}.csv', index=False)
+        # Update log upon successful scraping
+        logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
         
     except requests.exceptions.ConnectionError as e:
-        logging.error(f"Network connection error: {e}")
+        logger.error(f"Network connection error: {e}")
     except requests.exceptions.Timeout as e:
-        logging.error(f"Request timed out: {e}")
+        logger.error(f"Request timed out: {e}")
     except requests.exceptions.HTTPError as e:
-        logging.error(f"HTTP error: {e}")
-        logging.error(f"\n Server response: {e.response.text}")
+        logger.error(f"HTTP error: {e}")
+        logger.error(f"\n Server response: {e.response.text}")
     except requests.exceptions.RequestException as e:
-        logging.error(f"An unexpected Requests error occurred: {e}")
+        logger.error(f"An unexpected Requests error occurred: {e}")
     except Exception as e:
-        logging.error(f"An unexpected general error occurred: {e}")
+        logger.error(f"An unexpected general error occurred: {e}")
