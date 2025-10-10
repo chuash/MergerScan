@@ -1,6 +1,6 @@
 # Initialising relevant libraries
 import pandas as pd
-import logging, random, requests
+import logging, os, random, requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import List
@@ -22,7 +22,7 @@ _user_agents = [
 ]
 
 # Function to extract titles and first paragraphs from ACCC media press releases
-def get_ACCC_press_release(fromdate: datetime, user_agents:List[str]=_user_agents)->pd.DataFrame:
+def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->pd.DataFrame:
     # Retrieving the shared logger
     logger = logging.getLogger('shared_app_logger')
     # initialising an empty list to contain the desired media releases
@@ -33,6 +33,7 @@ def get_ACCC_press_release(fromdate: datetime, user_agents:List[str]=_user_agent
     try:
         i = 0
         while True:
+            # Start from the first page which also contains the most recent news release
             url = f"https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&items_per_page=25&page={i}"
             response = requests.get(url, headers=headers)
             # raises error in the event of bad responses
@@ -40,21 +41,23 @@ def get_ACCC_press_release(fromdate: datetime, user_agents:List[str]=_user_agent
             # parses the extracted html
             soup = BeautifulSoup(response.text, "html.parser")
         
-            # Get the published dates for all the news listings on each page
+            # Get the published dates for all the news listings on the page
             date = soup.find_all("div", class_="accc-date-card__header col-12 col-md-2")
             date_component = [{"Published Date": ele.find("span", class_="accc-date-card--publish--day").get_text().strip() + ' ' + 
                             ele.find("span", class_="accc-date-card--publish--month").get_text().strip() + ' ' + 
                             ele.find("span", class_="accc-date-card--publish--year").get_text().strip()} for ele in date]
         
-            # Get the titles and first paragraphs for all the news listings on each page
+            # Get the titles and first paragraphs for all the news listings on the page
             content = soup.find_all("div", class_="accc-date-card__body col-12 col-md-10")
             text_component = [{"Text": ele.find("div", class_="field--name-node-title").get_text().strip() + '. ' + 
                             ele.find("div", class_="field--name-field-acccgov-summary").get_text().strip()} for ele in content]
         
-            # tagging the published dates to the corresponding news listing
+            # Associate the published dates to the corresponding news listings
             news_extract = [item[0]|item[1] for item in zip(date_component,text_component)]
             listing.extend(news_extract)
 
+            # If the last published date on the page is still after the user input date, then continue to the next page
+            # Else stop if the last published date is earlier
             if datetime.strptime(date_component[-1]['Published Date'], '%d %b %Y') >= datetime.strptime(fromdate, '%d %b %Y'):
                 i = i+1
             else:
@@ -62,19 +65,24 @@ def get_ACCC_press_release(fromdate: datetime, user_agents:List[str]=_user_agent
 
         # convert to dataframe
         df= pd.DataFrame(listing)
+        # Filter for all news listing after the specified date
         df= df[pd.to_datetime(df['Published Date']) >= datetime.strptime(fromdate, '%d %b %Y')]
-        df.to_csv(f'ACCC_from_{fromdate}.csv', index=False)
+        # Add the news source
+        df['Source'] = 'ACCC'
+        df = df[['Published Date', 'Source', 'Text']]
+        # Export as csv
+        df.to_csv(os.path.join('Data',f'ACCC_from_{fromdate}.csv'), index=False)
         # Update log upon successful scraping
         logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
         
     except requests.exceptions.ConnectionError as e:
-        logger.error(f"Network connection error: {e}")
+        logger.error(f"ACCC- Network connection error: {e}")
     except requests.exceptions.Timeout as e:
-        logger.error(f"Request timed out: {e}")
+        logger.error(f"ACCC - Request timed out: {e}")
     except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error: {e}")
+        logger.error(f"ACCC - HTTP error: {e}")
         logger.error(f"\n Server response: {e.response.text}")
     except requests.exceptions.RequestException as e:
-        logger.error(f"An unexpected Requests error occurred: {e}")
+        logger.error(f"ACCC - An unexpected Requests error occurred: {e}")
     except Exception as e:
-        logger.error(f"An unexpected general error occurred: {e}")
+        logger.error(f"ACCC - An unexpected general error occurred: {e}")
