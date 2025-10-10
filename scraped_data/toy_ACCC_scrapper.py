@@ -71,7 +71,7 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
         df['Source'] = 'ACCC'
         df = df[['Published Date', 'Source', 'Text']]
         # Export as csv
-        df.to_csv(os.path.join('Data',f'ACCC_from_{fromdate}.csv'), index=False)
+        df.to_csv(os.path.join('scraped_data',f'ACCC_from_{fromdate}.csv'), index=False)
         # Update log upon successful scraping
         logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
         

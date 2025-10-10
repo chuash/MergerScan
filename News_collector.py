@@ -1,6 +1,6 @@
 import pandas as pd
 from helper_functions.utility import MyError, setup_shared_logger
-from Data import toy_ACCC_scrapper
+from scraped_data import toy_ACCC_scrapper
 
 # configure the shared logger at application entry point
 logger = setup_shared_logger()
@@ -13,6 +13,7 @@ if __name__ == "__main__":
 
     # a) Extracting news articles from ACCC
     toy_ACCC_scrapper.get_ACCC_press_release(fromdate = date)
+    
     # b) Extracting news articles from XXX
     # Scrapper for XXX to be called here
     

@@ -1,5 +1,19 @@
-#import streamlit as st
-import hmac, logging
+import logging, os
+from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from openai import OpenAI
+
+if not load_dotenv(".env"):
+    pass
+
+Groq_model = os.getenv("GROQ_MODEL_NAME")
+OAI_model = os.getenv("OPENAI_MODEL_NAME")  
+Groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
+OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
+                           #max_retries=os.getenv("PERPLEXITY_MAX_RETRIES"), timeout=os.getenv("PERPLEXITY_TIMEOUT"))
+                           
 
 # Setting up custom exception class
 class MyError(Exception):
@@ -9,6 +23,7 @@ class MyError(Exception):
     # Defining __str__ so that print() returns this
     def __str__(self):
         return self.value
+
 
 # Setting up logger
 def setup_shared_logger(log_file_name="application.log"):
