@@ -1,4 +1,4 @@
-import json
+import json, os
 import pandas as pd
 import time
 from groq import Groq
@@ -136,17 +136,31 @@ if __name__ == "__main__":
         logger.warning(f"No CSV files found or no DataFrames were successfully loaded.")
     else:
         combined_df = pd.concat(dfs, ignore_index=True)
+        combined_df = combined_df.head(10).copy()
 
     # 2) Pass the text in each data point in the combined DataFrame to LLM to decide if the text is related to merger and acquisition, and if so, extract the entities involved
+    
+    # Check the number of data points, for small dataset, can use free version of Groq models, larger dataset, use OpenAI 
     if len(combined_df) <= 200:
     # Use Groq
     # Calculate the delay based on Groq rate limit, meta-llama/llama-4-scout-17b-16e-instruct-> 30(RPM), 1K(RPD), 30K(TPM), 500K(TPD)
-    rate_limit_per_minute = 30
-    delay = 60.0 / rate_limit_per_minute
-    df1['response'] = df1.progress_apply(lambda x: json.loads(Groq_LLM(client = Groq_client, model=Groq_model, 
+        rate_limit_per_minute = 30
+        delay = 60.0 / rate_limit_per_minute
+        combined_df['response'] = combined_df.progress_apply(lambda x: json.loads(Groq_LLM(client = Groq_client, model=Groq_model, 
                                                    sys_msg=classifier_sys_msg, query=x['Text'],delay_in_seconds=delay).output_text), axis=1)
-else:
+    else:
     # Use OpenAI
     # Determine the delay to be 1sec based on OpenAI Tier 1 rate limit, gpt-4o-mini -> Tier1:	500 (RPM) , 10,000 (RPD), 200,000 (TPM).
-    df1['response'] = df1.progress_apply(lambda x: json.loads(OAI_LLM(client = OAI_client, model="gpt-4o-mini",
+        combined_df['response'] = combined_df.progress_apply(lambda x: json.loads(OAI_LLM(client = OAI_client, model=OAI_model,
                                                    sys_msg=classifier_sys_msg, query=x['Text']).output_text), axis=1)
+    
+    # Expand the 'response' column
+    expanded_response = combined_df['response'].apply(pd.Series)
+    # Combine with the original DataFrame
+    df_final = pd.concat([combined_df.drop(['response'], axis=1), expanded_response], axis=1)
+
+    # Export as csv
+    df_final.to_csv(os.path.join('output','articles_with_MA_classification.csv'), index=False)
+    
+    # Update log upon successful execution
+    logger.info(f"Articles successfully classified")
