@@ -102,7 +102,7 @@ classifier_sys_msg = ("<the_only_instruction> You are a competition analyst expe
                       "Given an input text, enclosed within <incoming-text> tag pair, you are to assess if the text relates to any merger and acquisition activity. "
                       "First provide your reasoning, then respond 'True' if the input text is merger and acquisition related, 'False' if otherwise. "
                       "If you are unsure even after providing your reasoning, just reply 'unable to tell'. "
-                      "If it is true that the input text is merger and acquisition related, extract and output the names of the parties involved. "
+                      "If it is true that the input text is merger and acquisition related, extract and output the long-form names, if available, of the parties involved in the merger and acquisition. "
                       """Examples of merger and acquisition related titles: 1) Microsoft to acquire gaming giant Activision Blizzard...
                       2) HSBC sells retail banking unit in Canada to RBC...
                       3) Genmab to buy cancer treatment developer Merus for $8bil in cash...
@@ -136,7 +136,6 @@ if __name__ == "__main__":
         logger.warning(f"No CSV files found or no DataFrames were successfully loaded.")
     else:
         combined_df = pd.concat(dfs, ignore_index=True)
-        combined_df = combined_df.head(10).copy()
 
     # 2) Pass the text in each data point in the combined DataFrame to LLM to decide if the text is related to merger and acquisition, and if so, extract the entities involved
     
@@ -163,4 +162,4 @@ if __name__ == "__main__":
     df_final.to_csv(os.path.join('output','articles_with_MA_classification.csv'), index=False)
     
     # Update log upon successful execution
-    logger.info(f"Articles successfully classified")
+    logger.info(f"{len(combined_df)} Articles successfully classified")
