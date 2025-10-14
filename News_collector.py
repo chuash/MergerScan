@@ -9,14 +9,18 @@ logger = setup_shared_logger()
 date = '01 Jul 2025'
 
 if __name__ == "__main__":
-    # 1): Extract news articles from relevant sources
-
-    # a) Extracting news articles from ACCC
-    toy_ACCC_scrapper.get_ACCC_press_release(fromdate = date)
-    
-    # b) Extracting news articles from XXX
-    # Scrapper for XXX to be called here
-    
-    # To augment with scrappers for other sources
-    # ...
+    try:
+        # 1): Extract news articles from relevant sources
+        # a) Extracting news articles from ACCC
+        toy_ACCC_scrapper.get_ACCC_press_release(fromdate = date)
+        
+        # b) Extracting news articles from XXX
+        # Scrapper for XXX to be called here
+        
+        # To augment with scrappers for other sources
+        # ...
+    except MyError as e:
+        logger.error(f"{e}")
+    except (Exception, BaseException) as e:
+        logger.error(f"Error: {e}")
 

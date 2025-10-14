@@ -3,6 +3,7 @@ import pandas as pd
 import logging, os, random, requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from helper_functions.utility import MyError
 from typing import List
 
 # list of user agents to be used when executing html request
@@ -33,7 +34,7 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
     try:
         i = 0
         while True:
-            # Start from the first page which also contains the most recent news release
+            # Start from the first page of ACCC media release site ,which also contains the most recent news release
             url = f"https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&items_per_page=25&page={i}"
             response = requests.get(url, headers=headers)
             # raises error in the event of bad responses
@@ -41,7 +42,7 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
             # parses the extracted html
             soup = BeautifulSoup(response.text, "html.parser")
         
-            # Get the published dates for all the news listings on the page
+            # Extract the published dates, in the format day month year (e.g. 01 Jul 2025), for all the news listings on the page
             date = soup.find_all("div", class_="accc-date-card__header col-12 col-md-2")
             date_component = [{"Published Date": ele.find("span", class_="accc-date-card--publish--day").get_text().strip() + ' ' + 
                             ele.find("span", class_="accc-date-card--publish--month").get_text().strip() + ' ' + 
@@ -52,7 +53,7 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
             text_component = [{"Text": ele.find("div", class_="field--name-node-title").get_text().strip() + '. ' + 
                             ele.find("div", class_="field--name-field-acccgov-summary").get_text().strip()} for ele in content]
         
-            # Associate the published dates to the corresponding news listings
+            # For each news listing, merge the dictionary containing the published dates to the dictionary corresponding text
             news_extract = [item[0]|item[1] for item in zip(date_component,text_component)]
             listing.extend(news_extract)
 
@@ -69,20 +70,21 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
         df= df[pd.to_datetime(df['Published Date']) >= datetime.strptime(fromdate, '%d %b %Y')]
         # Add the news source
         df['Source'] = 'ACCC'
-        df = df[['Published Date', 'Source', 'Text']]
+        # Add the extraction timestamp
+        df['Extracted Date'] = datetime.now().date().strftime("%d %b %Y")
+        df = df[['Published Date', 'Source', 'Extracted Date', 'Text']]
         # Export as csv
         df.to_csv(os.path.join('scraped_data',f'ACCC_from_{fromdate}.csv'), index=False)
         # Update log upon successful scraping
         logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
         
     except requests.exceptions.ConnectionError as e:
-        logger.error(f"ACCC- Network connection error: {e}")
+        raise MyError(f"ACCC- Network connection error: {e}")
     except requests.exceptions.Timeout as e:
-        logger.error(f"ACCC - Request timed out: {e}")
+        raise MyError(f"ACCC - Request timed out: {e}")
     except requests.exceptions.HTTPError as e:
-        logger.error(f"ACCC - HTTP error: {e}")
-        logger.error(f"\n Server response: {e.response.text}")
+        raise MyError(f"ACCC - HTTP error: {e} \nServer response: {e.response.text}")
     except requests.exceptions.RequestException as e:
-        logger.error(f"ACCC - An unexpected Requests error occurred: {e}")
+        raise MyError(f"ACCC - An unexpected Requests error occurred: {e}")
     except Exception as e:
-        logger.error(f"ACCC - An unexpected general error occurred: {e}")
+        raise MyError(f"ACCC - An unexpected general error occurred: {e}")
