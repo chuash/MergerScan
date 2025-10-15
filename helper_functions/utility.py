@@ -50,6 +50,9 @@ def setup_shared_logger(log_file_name="application.log"):
 
     return logger
 
+
+# Setting up connection to database
+
 # Function to check streamlit log in password
 #def check_password():
 #    """This functions provides password protection for the
