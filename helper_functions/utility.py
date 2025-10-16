@@ -1,4 +1,5 @@
 import logging, os
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
@@ -49,6 +50,19 @@ def setup_shared_logger(log_file_name="application.log"):
         logger.addHandler(file_handler)
 
     return logger
+
+
+# Setting scraper data collection date
+def set_collection_date(date:str=None, lookback:int=1):
+    """Allows user to set the date from which to scrape from. If neither the date nor the lookback 
+    period is set, by default, the date is set to one day prior. if the lookback period is set, 
+    the date is set to x days prior, where x is the lookback period.  
+    """
+    if date is not None:
+        return date
+    else:
+        temp = datetime.now().date()-timedelta(days=lookback)
+        return temp.strftime("%d %b %Y")
 
 
 # Setting up connection to database
