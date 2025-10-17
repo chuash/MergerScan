@@ -16,6 +16,7 @@ OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
                            #max_retries=os.getenv("PERPLEXITY_MAX_RETRIES"), timeout=os.getenv("PERPLEXITY_TIMEOUT"))
 tempscrappedfolder = 'temp_scraped_data'    # Set the folder used to temporarily store scrapped data
+WIPfolder = 'temp' # Set the folder used to hold temporary files (CSV)
 tablename = 'media_releases'    # Set the tablename for the sqlite database table used to store scrapped data
 dbfolder = 'database'
                            

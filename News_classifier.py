@@ -2,7 +2,7 @@ import json, openai, os, sqlite3
 import pandas as pd
 import time
 from groq import Groq
-from helper_functions.utility import MyError, setup_shared_logger, Groq_model, Groq_client, OAI_model, OAI_client, tempscrappedfolder, tablename, dbfolder
+from helper_functions.utility import MyError, setup_shared_logger, Groq_model, Groq_client, OAI_model, OAI_client, tempscrappedfolder, tablename, dbfolder, WIPfolder
 from openai import OpenAI
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -17,6 +17,8 @@ logger = setup_shared_logger()
 
 # Create database folder, if it does't exist
 Path(dbfolder).mkdir(parents=True, exist_ok=True)
+# Create temp folder, if it does't exist
+Path(WIPfolder).mkdir(parents=True, exist_ok=True)
 
 
 class classifier_response(BaseModel):
@@ -190,7 +192,7 @@ if __name__ == "__main__":
                 df_final = pd.concat([combined_df.drop(['response'], axis=1), expanded_response], axis=1)
                 df_final['entities'] = df_final['entities'].apply(lambda x: ', '.join(x))
 
-            # Write to database
+            # Write to CSV in temp folder
                 df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
             
             # Update log upon successful execution
