@@ -23,7 +23,7 @@ _user_agents = [
 ]
 
 # Function to extract titles and first paragraphs from ACCC media press releases
-def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->pd.DataFrame:
+def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_user_agents)->pd.DataFrame:
     # Retrieving the shared logger
     logger = logging.getLogger('shared_app_logger')
     # initialising an empty list to contain the desired media releases
@@ -35,7 +35,7 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
         i = 0
         while True:
             # Start from the first page of ACCC media release site ,which also contains the most recent news release
-            url = f"https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&items_per_page=25&page={i}"
+            url = f"https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&view_args=accc_news&items_per_page=25&page={i}"   #https://www.accc.gov.au/news-centre?type=accc_news&items_per_page=25&view_args=accc_news&page=1
             response = requests.get(url, headers=headers)
             # raises error in the event of bad responses
             response.raise_for_status()
@@ -44,7 +44,7 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
         
             # Extract the published dates, in the format day month year (e.g. 01 Jul 2025), for all the news listings on the page
             date = soup.find_all("div", class_="accc-date-card__header col-12 col-md-2")
-            date_component = [{"Published Date": ele.find("span", class_="accc-date-card--publish--day").get_text().strip() + ' ' + 
+            date_component = [{"Published_Date": ele.find("span", class_="accc-date-card--publish--day").get_text().strip() + ' ' + 
                             ele.find("span", class_="accc-date-card--publish--month").get_text().strip() + ' ' + 
                             ele.find("span", class_="accc-date-card--publish--year").get_text().strip()} for ele in date]
         
@@ -53,13 +53,13 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
             text_component = [{"Text": ele.find("div", class_="field--name-node-title").get_text().strip() + '. ' + 
                             ele.find("div", class_="field--name-field-acccgov-summary").get_text().strip()} for ele in content]
         
-            # For each news listing, merge the dictionary containing the published dates to the dictionary corresponding text
+            # For each news listing, merge the dictionary containing the published dates to the dictionary of corresponding text
             news_extract = [item[0]|item[1] for item in zip(date_component,text_component)]
             listing.extend(news_extract)
 
             # If the last published date on the page is still after the user input date, then continue to the next page
             # Else stop if the last published date is earlier
-            if datetime.strptime(date_component[-1]['Published Date'], '%d %b %Y') >= datetime.strptime(fromdate, '%d %b %Y'):
+            if datetime.strptime(date_component[-1]['Published_Date'], '%d %b %Y') >= datetime.strptime(fromdate, '%d %b %Y'):
                 i = i+1
             else:
                 break
@@ -67,16 +67,19 @@ def get_ACCC_press_release(fromdate: str, user_agents:List[str]=_user_agents)->p
         # convert to dataframe
         df= pd.DataFrame(listing)
         # Filter for all news listing after the specified date
-        df= df[pd.to_datetime(df['Published Date']) >= datetime.strptime(fromdate, '%d %b %Y')]
-        # Add the news source
-        df['Source'] = 'ACCC'
-        # Add the extraction timestamp
-        df['Extracted Date'] = datetime.now().date().strftime("%d %b %Y")
-        df = df[['Published Date', 'Source', 'Extracted Date', 'Text']]
-        # Export as csv
-        df.to_csv(os.path.join('scraped_data',f'ACCC_from_{fromdate}.csv'), index=False)
-        # Update log upon successful scraping
-        logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
+        df= df[pd.to_datetime(df['Published_Date']) >= datetime.strptime(fromdate, '%d %b %Y')]
+        if len(df) == 0:
+            logger.info(f"No media releases dated from '{fromdate}' downloaded from ACCC")
+        else:
+            # Add the news source
+            df['Source'] = 'ACCC'
+            # Add the extraction timestamp
+            df['Extracted_Date'] = datetime.now().date().strftime("%d %b %Y")
+            df = df[['Published_Date', 'Source', 'Extracted_Date', 'Text']]
+            # Export as csv
+            df.to_csv(os.path.join(folder,f'ACCC_from_{fromdate}.csv'), index=False)
+            # Update log upon successful scraping
+            logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
         
     except requests.exceptions.ConnectionError as e:
         raise MyError(f"ACCC- Network connection error: {e}")

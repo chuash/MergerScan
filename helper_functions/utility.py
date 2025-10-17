@@ -8,15 +8,19 @@ from openai import OpenAI
 if not load_dotenv(".env"):
     pass
 
+# Define variables
 Groq_model = os.getenv("GROQ_MODEL_NAME")
 OAI_model = os.getenv("OPENAI_MODEL_NAME")  
 Groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
 OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
                            #max_retries=os.getenv("PERPLEXITY_MAX_RETRIES"), timeout=os.getenv("PERPLEXITY_TIMEOUT"))
+tempscrappedfolder = 'temp_scraped_data'    # Set the folder used to temporarily store scrapped data
+tablename = 'media_releases'    # Set the tablename for the sqlite database table used to store scrapped data
+dbfolder = 'database'
                            
 
-# Setting up custom exception class
+# Set up custom exception class
 class MyError(Exception):
     def __init__(self, value):
         self.value = value
@@ -26,7 +30,7 @@ class MyError(Exception):
         return self.value
 
 
-# Setting up logger
+# Set up logger
 def setup_shared_logger(log_file_name="application.log"):
     """
     Sets up a shared logger instance for the entire application.
@@ -52,8 +56,8 @@ def setup_shared_logger(log_file_name="application.log"):
     return logger
 
 
-# Setting scraper data collection date
-def set_collection_date(date:str=None, lookback:int=1):
+# Set scraper data collection date
+def set_collection_date(date:str=None, lookback:int=2):
     """Allows user to set the date from which to scrape from. If neither the date nor the lookback 
     period is set, by default, the date is set to one day prior. if the lookback period is set, 
     the date is set to x days prior, where x is the lookback period.  
@@ -64,8 +68,6 @@ def set_collection_date(date:str=None, lookback:int=1):
         temp = datetime.now().date()-timedelta(days=lookback)
         return temp.strftime("%d %b %Y")
 
-
-# Setting up connection to database
 
 # Function to check streamlit log in password
 #def check_password():
