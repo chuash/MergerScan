@@ -190,7 +190,7 @@ if __name__ == "__main__":
                 expanded_response = combined_df['response'].apply(pd.Series)
             # Combine with the original DataFrame
                 df_final = pd.concat([combined_df.drop(['response'], axis=1), expanded_response], axis=1)
-                df_final['entities'] = df_final['entities'].apply(lambda x: ', '.join(x))
+                df_final['entities'] = df_final['entities'].apply(lambda x: ',| '.join(x))
 
             # Write to CSV in temp folder
                 df_final.to_csv(os.path.join(WIPfolder,'classified_media_releases.csv'), index=False)
