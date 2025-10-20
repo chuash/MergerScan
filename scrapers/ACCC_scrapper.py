@@ -72,7 +72,7 @@ def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_us
             logger.info(f"No media releases dated from '{fromdate}' downloaded from ACCC")
         else:
             # Add the news source
-            df['Source'] = 'ACCC'
+            df['Source'] = 'Australian Competition & Consumer Commission'
             # Add the extraction timestamp
             df['Extracted_Date'] = datetime.now().date().strftime("%d %b %Y")
             df = df[['Published_Date', 'Source', 'Extracted_Date', 'Text']]

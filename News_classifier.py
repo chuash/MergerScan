@@ -193,7 +193,8 @@ if __name__ == "__main__":
                 df_final['entities'] = df_final['entities'].apply(lambda x: ', '.join(x))
 
             # Write to CSV in temp folder
-                df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
+                df_final.to_csv(os.path.join(WIPfolder,'classified_media_releases.csv'), index=False)
+                #df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
             
             # Update log upon successful execution
                 logger.info(f"{str(len(combined_df))} articles successfully classified")
