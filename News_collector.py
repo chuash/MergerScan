@@ -7,7 +7,8 @@ from scrapers import ACCC_scrapper
 logger = setup_shared_logger()
 
 # Set the date from which news releases are to be scrapped, in the format day month year, e.g. 01 Jan 2025
-date = set_collection_date(date='01 Sep 2025')
+scrapfromdate=None
+date = set_collection_date(date=scrapfromdate)
 
 # Create folder used to temporarily store scrapped data, if it does't exist
 Path(tempscrappedfolder).mkdir(parents=True, exist_ok=True)

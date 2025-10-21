@@ -23,9 +23,9 @@ Path(WIPfolder).mkdir(parents=True, exist_ok=True)
 
 class classifier_response(BaseModel):
     """Pydantic response class to ensure that LLM always responds in the same format."""
-    reasons: str = Field(..., description="A concise yet precise reasoning and justification as to whether given text is merger and acquisition related.")
-    merger_related: Literal['true', 'false', 'unable to tell'] = Field(...,description="Respond 'true' if given text is merger and acquisition related, 'false' if otherwise. If unsure even after providing reasoning, reply 'unable to tell'.")
-    entities: Optional[List[str]] = Field(..., description="Captures the list of names of parties involved, if given text is merger and acquisition related.")
+    Reasons: str = Field(..., description="A concise yet precise reasoning and justification as to whether given text is merger and acquisition related.")
+    Merger_Related: Literal['true', 'false', 'unable to tell'] = Field(...,description="Respond 'true' if given text is merger and acquisition related, 'false' if otherwise. If unsure even after providing reasoning, reply 'unable to tell'.")
+    Merger_Entities: Optional[List[str]] = Field(..., description="Captures the list of names of parties involved, if given text is merger and acquisition related.")
 
 
 def OAI_LLM(client: OpenAI , model: str, sys_msg: str, query:str, maxtokens:int=150, store:bool=False,
@@ -92,15 +92,15 @@ def Groq_LLM(client: Groq | OpenAI , model: str, sys_msg: str, query:str, maxtok
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "reasons": {"type": "string", "description": "A concise yet precise reasoning and justification as to whether given input text is merger and acquisition related."},
-                        "merger_related": {"type": "string", "enum": ["true", "false", "unable to tell"], "description": "Respond 'true' if the given input text is merger and acquisition related, 'false' if otherwise. If unsure even after providing reasoning, reply 'unable to tell'."},
-                        "entities": {
+                        "Reasons": {"type": "string", "description": "A concise yet precise reasoning and justification as to whether given input text is merger and acquisition related."},
+                        "Merger_Related": {"type": "string", "enum": ["true", "false", "unable to tell"], "description": "Respond 'true' if the given input text is merger and acquisition related, 'false' if otherwise. If unsure even after providing reasoning, reply 'unable to tell'."},
+                        "Merger_Entities": {
                             "type": "array",
                             "items": {"type": "string"},
                             "description": "Captures the list of names of parties involved, if given input text is merger and acquisition related."
                         }
                     },
-                    "required": ["reasons", "merger_related"],
+                    "required": ["Reasons", "Merger_Related"],
                     "additionalProperties": False
                 },
             }
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 pass
         # if there is historical data, check and remove potential duplicates with the data scraped during the most recent run
             else:
-                query = f"SELECT Published_Date, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
+                query = f"SELECT Published_Date, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})" # consider if need to include Source for comparison
                 past_df = pd.read_sql_query(query, conn)
                 combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
             
@@ -190,11 +190,11 @@ if __name__ == "__main__":
                 expanded_response = combined_df['response'].apply(pd.Series)
             # Combine with the original DataFrame
                 df_final = pd.concat([combined_df.drop(['response'], axis=1), expanded_response], axis=1)
-                df_final['entities'] = df_final['entities'].apply(lambda x: ',| '.join(x))
+                df_final['Merger_Entities'] = df_final['Merger_Entities'].apply(lambda x: ',| '.join(x))
 
             # Write to CSV in temp folder
                 df_final.to_csv(os.path.join(WIPfolder,'classified_media_releases.csv'), index=False)
-                #df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
+                df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
             
             # Update log upon successful execution
                 logger.info(f"{str(len(combined_df))} articles successfully classified")
