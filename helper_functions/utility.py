@@ -122,9 +122,9 @@ def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:Bas
         return response
     
     except openai.APIError as e:
-            raise MyError(f"API Error: {e}, while processing text '{input}'")
+            raise MyError(f"llm_output function API error: {e}, while processing text '{input}'")
     except (Exception, BaseException) as e:
-            raise MyError(f"Error: {e}, while processing text '{input}'")
+            raise MyError(f"llm_output function error: {e}, while processing text '{input}'")
 
 
 # Set up asynchronous LLM API response
@@ -152,9 +152,9 @@ async def async_llm_output(client:Groq|OpenAI, model:str, prompt_messages:List[D
         return response
     
     except openai.APIError as e:
-            raise MyError(f"API Error: {e}, while processing text '{prompt_messages[1]['content']}'")
+            raise MyError(f"async_llm_output function API error: {e}, while processing text '{prompt_messages[1]['content']}'")
     except (Exception, BaseException) as e:
-            raise MyError(f"Error: {e}, while processing text '{prompt_messages[1]['content']}'")
+            raise MyError(f"async_llm_output function error: {e}, while processing text '{prompt_messages[1]['content']}'")
 
 # Function to check streamlit log in password
 #def check_password():

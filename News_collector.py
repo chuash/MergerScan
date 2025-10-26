@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from helper_functions.utility import MyError, setup_shared_logger, set_collection_date, tempscrappedfolder
 from pathlib import Path
@@ -25,5 +26,5 @@ if __name__ == "__main__":
     except MyError as e:
         logger.error(f"{e}")
     except (Exception, BaseException) as e:
-        logger.error(f"General Error: {e}")
+        logger.error(f"Error while executing {os.path.basename(__file__)} : {e}")
 

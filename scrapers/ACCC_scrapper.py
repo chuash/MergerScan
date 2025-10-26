@@ -82,12 +82,12 @@ def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_us
             logger.info(f"Media releases dated from '{fromdate}' successfully downloaded from ACCC")
         
     except requests.exceptions.ConnectionError as e:
-        raise MyError(f"ACCC- Network connection error: {e}")
+        raise MyError(f"ACCC Scraper - Network connection error: {e}")
     except requests.exceptions.Timeout as e:
-        raise MyError(f"ACCC - Request timed out: {e}")
+        raise MyError(f"ACCC Scraper - Request timed out: {e}")
     except requests.exceptions.HTTPError as e:
-        raise MyError(f"ACCC - HTTP error: {e} \nServer response: {e.response.text}")
+        raise MyError(f"ACCC Scraper - HTTP error: {e} \nServer response: {e.response.text}")
     except requests.exceptions.RequestException as e:
-        raise MyError(f"ACCC - An unexpected Requests error occurred: {e}")
+        raise MyError(f"ACCC Scraper - An unexpected Requests error occurred: {e}")
     except Exception as e:
-        raise MyError(f"ACCC - An unexpected general error occurred: {e}")
+        raise MyError(f"ACCC Scraper - An unexpected general error occurred: {e}")

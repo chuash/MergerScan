@@ -1,16 +1,17 @@
-import asyncio, json, openai, sqlite3
+import asyncio, json, openai, os, sqlite3
 import pandas as pd
 import time
 from groq import Groq
 from helper_functions.utility import (MyError, setup_shared_logger, Groq_model, Groq_client, OAI_model, OAI_client, 
                                       async_Groq_client, async_OAI_client, async_Perplexity_client, Perplexity_model, 
-                                      async_llm_output, tablename, tablename_websearch, dbfolder)
+                                      async_llm_output, tablename, tablename_websearch, dbfolder, WIPfolder)
 from helper_functions.prompts import (websearch_raw_sys_msg, query1_structoutput_sys_msg, query1_user_input, query2_user_input, 
                                       query3_user_input)
 from openai import OpenAI, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pathlib import Path
 from pydantic import BaseModel, Field
+from strip_markdown import strip_markdown
 from tqdm.asyncio import tqdm_asyncio
 from tqdm.auto import tqdm
 from typing import Dict, List, Any
@@ -72,12 +73,12 @@ async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List
             return response
         
         except openai.APIError as e:
-            raise MyError(f"API Error: {e}, while processing text '{prompt_messages[1]['content']}'")
+            raise MyError(f"async_Perplexity_search function API error: {e}, while processing text '{prompt_messages[1]['content']}'")
         except (Exception, BaseException) as e:
-            raise MyError(f"Error: {e}, while processing text '{prompt_messages[1]['content']}'")
+            raise MyError(f"async_Perplexity_search function error: {e}, while processing text '{prompt_messages[1]['content']}'")
 
 async def websearch(chunk:List)-> List[Any]:
-    """Processes a list of query requests concurrently by Perplexity."""
+    """Processes a list of Perplexity requests concurrently."""
     tasks = [async_perplexity_search(client=async_Perplexity_client, model=Perplexity_model, prompt_messages=p, schema=None) for p in chunk]
     results = await tqdm_asyncio.gather(*tasks, desc="Processing tasks")
     return results
@@ -108,41 +109,57 @@ def prompt_generator(data_list:List, sys_msg:str)->List[List[Dict]]:
         prompt_message_list.append([{"role": "system", "content": f"{sys_msg}"},{"role": "user", "content": f"<incoming-text>{item}</incoming-text>"}])
     return prompt_message_list
 
+tempfilepath = os.path.join(WIPfolder,'classified_media_releases_websearch.csv')
 
 if __name__ == "__main__":
     try:
-        #1) Establish connection to database and read in data from table
+        #1) Establish connection to database
         conn = sqlite3.connect(f'{dbfolder}/data.db')
         cursor = conn.cursor()
-        sqlquery = f"SELECT Published_Date, Source, Text, Merger_Related, Merger_Entities FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
+        sqlquery = f"SELECT Published_Date, Source, Text, Merger_Related, Merger_Entities FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"    
         df = pd.read_sql_query(sqlquery, con=conn)
 
-        #2) Filter for merger related news with identified entities, and extract the corresponding news source - entities pairs 
-        df1 = df[(df['Merger_Related']=='true') & (df['Merger_Entities']!='')].reset_index(inplace=False).drop('index', axis=1)
+        #2) Filter for merger related news with identified entities, and extract the corresponding news source - entities pairs
+        if os.path.exists(tempfilepath):
+            df1 = pd.read_csv(tempfilepath).fillna('')
+        else:
+            df1 = df[(df['Merger_Related']=='true') & (df['Merger_Entities']!='')].reset_index(inplace=False).drop('index', axis=1)
         org_entities = df1[['Source','entities']].apply(tuple, axis=1).to_list()
 
-        #3a) Generate query 1 prompt messages using user inputs for query 1
-        query1_list = []
-        for item in org_entities:
-            query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {query1_user_input}")
-        query1_prompt_message_list = prompt_generator(data_list=query1_list, sys_msg=websearch_raw_sys_msg)
+        if 'Query1' in df1.columns:
+            pass
+        else:
+            #3a) Generate query 1 user prompt messages for all identified merger-related news , using the query 1 text supplied by user
+            query1_list = []
+            for item in org_entities:
+                query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {query1_user_input}")
+            query1_prompt_message_list = prompt_generator(data_list=query1_list, sys_msg=websearch_raw_sys_msg)
+            logger.info(f"List of {len(query1_prompt_message_list)} query 1 prompt messages successfully generated.")
 
-        #3b) Execute Perplexity search for query 1 asynchronously
-        query1_websearch_results = asyncio.run(main(data_list=query1_prompt_message_list, func=websearch, chunk_size=10, pause_duration=1))
+            #3b) Execute Perplexity search for query 1 asynchronously, then parse the Perplexity responses via another LLM in order to produce structured outputs with citations
+            query1_websearch_results = asyncio.run(main(data_list=query1_prompt_message_list, func=websearch, chunk_size=6, pause_duration=1))
+            logger.info("Web search for query 1 successfully executed. Preparing to parse Perplexity responses via another LLM.")
+            query1_struct_prompt_message_list = prompt_generator(data_list=[strip_markdown(item.choices[0].message.content) for item in query1_websearch_results], sys_msg=query1_structoutput_sys_msg)
+            struct_query1_websearch_results = asyncio.run(main(data_list=query1_struct_prompt_message_list,func=structured_output, chunk_size=10, pause_duration=1))  # can use larger chunks and shorter duration if using OpenAI
+            logger.info("Web search with structured output for query 1 successfully executed")
+            
+            #3c)  Combine raw Perplexity search response with the structured output, then append to dataframe
+            query1_combined_results = [str((x.choices[0].message.content, x.citations, y.choices[0].message.content)) for x, y in zip(query1_websearch_results, struct_query1_websearch_results)]
+            df1['Query1'] = query1_combined_results
+            df1.to_csv(tempfilepath, index=False)
 
-        #3c) 
-        #struct_prompt_message_list = prompt_generator(data_list=[strip_markdown(item.choices[0].message.content) for item in websearchresults], sys_msg=structoutput_sys_msg)
-#struct_prompt_message_list
+        #4a) Carry on for the next few questions, 2, 3, 4
 
-
-
+        # Write to database
+        df_final = pd.merge(df, df1.drop(['Merger_Related', 'Merger_Entities'], axis=1), on=['Published_Date', 'Source', 'Text'], how='left').fillna('')
+        df_final.to_sql(f'media_releases_websearch', con=conn, if_exists='append', index=False)
 
     except MyError as e:
-        logger.error(f"{e}")
+        logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
     except sqlite3.Error as e:
-        logger.error(f"Database connection error: {e}")
+        logger.error(f"Database connection error while executing {os.path.basename(__file__)}: {e}")
     except (Exception, BaseException) as e:
-        logger.error(f"General Error: {e}")
+        logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
     
     finally:
     # Ensure the database connection is closed

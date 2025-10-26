@@ -101,11 +101,11 @@ if __name__ == "__main__":
             # Once done, remove CSV files from temp_scraped_data folder
     
     except MyError as e:
-        logger.error(f"{e}")
+        logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
     except sqlite3.Error as e:
-        logger.error(f"Database connection error: {e}")
+        logger.error(f"Database connection error while executing {os.path.basename(__file__)}: {e}")
     except (Exception, BaseException) as e:
-        logger.error(f"General Error: {e}")
+        logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
     
     finally:
     # Ensure the database connection is closed
