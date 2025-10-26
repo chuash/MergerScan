@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
             
             if len(combined_df) == 0:  #skip if there is no data
-                    logger.info("No new article to be classified")
+                    logger.warning("No new article to be classified")
             else:
             # 3) Pass the text in each data point in the combined DataFrame to LLM to decide if the text is related to merger and acquisition, and if so, extract the entities involved
             
@@ -91,12 +91,14 @@ if __name__ == "__main__":
                 df_final = pd.concat([combined_df.drop(['response'], axis=1), expanded_response], axis=1)
                 df_final['Merger_Entities'] = df_final['Merger_Entities'].apply(lambda x: ',| '.join(x) if x is not None and len(x)>1 else '')
 
-            # Write to CSV in temp folder
-                df_final.to_csv(os.path.join(WIPfolder,'classified_media_releases.csv'), index=False)
+            # Write to CSV for as well as save to database
+                df_final.to_csv(os.path.join(WIPfolder,'classified_media_releases.csv'), index=False) 
                 df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
             
             # Update log upon successful execution
                 logger.info(f"{str(len(combined_df))} articles successfully classified")
+            
+            # Once done, remove CSV files from temp_scraped_data folder
     
     except MyError as e:
         logger.error(f"{e}")

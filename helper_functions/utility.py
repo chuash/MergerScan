@@ -7,13 +7,15 @@ from langchain_openai import ChatOpenAI
 from openai import OpenAI, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
+from typing import Dict, List
 
 if not load_dotenv(".env"):
     pass
 
 # Define variables
 Groq_model = os.getenv("GROQ_MODEL_NAME")
-OAI_model = os.getenv("OPENAI_MODEL_NAME")  
+OAI_model = os.getenv("OPENAI_MODEL_NAME")
+Perplexity_model = os.getenv("PERPLEXITY_MODEL_NAME")  
 Groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
 OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
@@ -120,9 +122,39 @@ def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:Bas
         return response
     
     except openai.APIError as e:
-            print(MyError(f"API Error: {e}, while processing text '{input}'"))
+            raise MyError(f"API Error: {e}, while processing text '{input}'")
     except (Exception, BaseException) as e:
-            print(MyError(f"Error: {e}, while processing text '{input}'"))
+            raise MyError(f"Error: {e}, while processing text '{input}'")
+
+
+# Set up asynchronous LLM API response
+async def async_llm_output(client:Groq|OpenAI, model:str, prompt_messages:List[Dict], schema:BaseModel|None, 
+                           maxtokens:int=1024, store:bool=False, temperature:int=0)-> BaseModel|ChatCompletion:
+    try:
+        if schema:
+                output_json_structure = {"type": "json_schema",
+                                         "json_schema": {
+                                             "name": schema.__name__,
+                                             "schema": schema.model_json_schema()
+                                            }    
+                                        }
+        else:
+              output_json_structure = None
+        
+        response = await client.chat.completions.create(
+            model=model,
+            messages=prompt_messages,
+            temperature=temperature,
+            max_completion_tokens=maxtokens,
+            store=store,
+            response_format=output_json_structure
+        )
+        return response
+    
+    except openai.APIError as e:
+            raise MyError(f"API Error: {e}, while processing text '{prompt_messages[1]['content']}'")
+    except (Exception, BaseException) as e:
+            raise MyError(f"Error: {e}, while processing text '{prompt_messages[1]['content']}'")
 
 # Function to check streamlit log in password
 #def check_password():
