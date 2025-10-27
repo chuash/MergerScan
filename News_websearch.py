@@ -4,7 +4,7 @@ import time
 from groq import Groq
 from helper_functions.utility import (MyError, setup_shared_logger, Groq_model, Groq_client, OAI_model, OAI_client, 
                                       async_Groq_client, async_OAI_client, async_Perplexity_client, Perplexity_model, 
-                                      async_llm_output, tablename, tablename_websearch, dbfolder, WIPfolder)
+                                      async_llm_output, tablename, dbfolder, WIPfolder)
 from helper_functions.prompts import (websearch_raw_sys_msg, query1_structoutput_sys_msg, query1_user_input, query2_user_input, 
                                       query3_user_input)
 from openai import OpenAI, AsyncOpenAI
@@ -109,22 +109,24 @@ def prompt_generator(data_list:List, sys_msg:str)->List[List[Dict]]:
         prompt_message_list.append([{"role": "system", "content": f"{sys_msg}"},{"role": "user", "content": f"<incoming-text>{item}</incoming-text>"}])
     return prompt_message_list
 
-tempfilepath = os.path.join(WIPfolder,'classified_media_releases_websearch.csv')
+tempfilepath = os.path.join(WIPfolder,'media_releases_websearch.csv')
 
 if __name__ == "__main__":
     try:
-        #1) Establish connection to database
+        #0) Establish connection to database
         conn = sqlite3.connect(f'{dbfolder}/data.db')
         cursor = conn.cursor()
-        sqlquery = f"SELECT Published_Date, Source, Text, Merger_Related, Merger_Entities FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"    
-        df = pd.read_sql_query(sqlquery, con=conn)
-
-        #2) Filter for merger related news with identified entities, and extract the corresponding news source - entities pairs
+        
+        #1) Check if tempfilepath exists, if not read from database and filter for merger related news with identified entities
         if os.path.exists(tempfilepath):
             df1 = pd.read_csv(tempfilepath).fillna('')
         else:
+            sqlquery = f"SELECT Published_Date, Source, Extracted_Date, Text, Merger_Related, Merger_Entities FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"    
+            df = pd.read_sql_query(sqlquery, con=conn)
             df1 = df[(df['Merger_Related']=='true') & (df['Merger_Entities']!='')].reset_index(inplace=False).drop('index', axis=1)
-        org_entities = df1[['Source','entities']].apply(tuple, axis=1).to_list()
+        
+        #2) Extract the corresponding news source - entities pairs
+        org_entities = df1[['Source','Merger_Entities']].apply(tuple, axis=1).to_list()
 
         if 'Query1' in df1.columns:
             pass
@@ -135,7 +137,7 @@ if __name__ == "__main__":
                 query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {query1_user_input}")
             query1_prompt_message_list = prompt_generator(data_list=query1_list, sys_msg=websearch_raw_sys_msg)
             logger.info(f"List of {len(query1_prompt_message_list)} query 1 prompt messages successfully generated.")
-
+           
             #3b) Execute Perplexity search for query 1 asynchronously, then parse the Perplexity responses via another LLM in order to produce structured outputs with citations
             query1_websearch_results = asyncio.run(main(data_list=query1_prompt_message_list, func=websearch, chunk_size=6, pause_duration=1))
             logger.info("Web search for query 1 successfully executed. Preparing to parse Perplexity responses via another LLM.")
@@ -146,13 +148,16 @@ if __name__ == "__main__":
             #3c)  Combine raw Perplexity search response with the structured output, then append to dataframe
             query1_combined_results = [str((x.choices[0].message.content, x.citations, y.choices[0].message.content)) for x, y in zip(query1_websearch_results, struct_query1_websearch_results)]
             df1['Query1'] = query1_combined_results
+
+            #3d) Write to temporary CSV and also to database.
             df1.to_csv(tempfilepath, index=False)
+            df1.drop(['Merger_Related', 'Merger_Entities'], axis=1).to_sql(f'media_releases_websearch_query1', con=conn, if_exists='append', index=False)
 
         #4a) Carry on for the next few questions, 2, 3, 4
 
         # Write to database
-        df_final = pd.merge(df, df1.drop(['Merger_Related', 'Merger_Entities'], axis=1), on=['Published_Date', 'Source', 'Text'], how='left').fillna('')
-        df_final.to_sql(f'media_releases_websearch', con=conn, if_exists='append', index=False)
+        #df_final = pd.merge(df, df1.drop(['Merger_Related', 'Merger_Entities'], axis=1), on=['Published_Date', 'Source', 'Text'], how='left').fillna('')
+        #df_final.to_sql(f'media_releases_websearch', con=conn, if_exists='append', index=False)
 
     except MyError as e:
         logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")

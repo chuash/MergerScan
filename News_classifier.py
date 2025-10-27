@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from groq import Groq
 from helper_functions.utility import MyError, setup_shared_logger, llm_output, Groq_model, Groq_client, OAI_model, OAI_client, tempscrappedfolder, tablename, dbfolder, WIPfolder
-from helper_functions.utility import classifier_sys_msg
+from helper_functions.prompts import classifier_sys_msg
 from openai import OpenAI
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -61,9 +61,9 @@ if __name__ == "__main__":
                 pass
         # if there is historical data, check and remove potential duplicates with the data scraped during the most recent run
             else:
-                query = f"SELECT Published_Date, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})" # consider if need to include Source for comparison
+                query = f"SELECT Published_Date, Source, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})" # consider if need to include Source for comparison
                 past_df = pd.read_sql_query(query, conn)
-                combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
+                combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Source'].isin(past_df['Source'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
             
             if len(combined_df) == 0:  #skip if there is no data
                     logger.warning("No new article to be classified")
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                 df_final['Merger_Entities'] = df_final['Merger_Entities'].apply(lambda x: ',| '.join(x) if x is not None and len(x)>1 else '')
 
             # Write to CSV for as well as save to database
-                df_final.to_csv(os.path.join(WIPfolder,'classified_media_releases.csv'), index=False) 
+                df_final.to_csv(os.path.join(WIPfolder,'media_releases.csv'), index=False) 
                 df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
             
             # Update log upon successful execution

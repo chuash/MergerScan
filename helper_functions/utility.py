@@ -25,7 +25,7 @@ async_Perplexity_client = AsyncOpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), b
 tempscrappedfolder = 'temp_scraped_data'    # Set the folder used to temporarily store scrapped data
 WIPfolder = 'temp' # Set the folder used to hold temporary files (CSV)
 tablename = 'media_releases'    # Set the tablename for the sqlite database table used to store scrapped data 
-tablename_websearch = 'media_releases_websearch'    # Set the tablename for the sqlite database table used to store scrapped data with websearch results
+#tablename_websearch = 'media_releases_websearch'    # Set the tablename for the sqlite database table used to store scrapped data with websearch results
 dbfolder = 'database'
                            
 
