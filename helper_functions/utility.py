@@ -1,4 +1,4 @@
-import logging, openai, os, time
+import logging, openai, os, time, tiktoken
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from groq import Groq
@@ -76,6 +76,15 @@ def set_collection_date(date:str=None, lookback:int=2):
     else:
         temp = datetime.now().date()-timedelta(days=lookback)
         return temp.strftime("%d %b %Y")
+
+
+def count_tokens(text:str, model:str="gpt-4o-mini")->int:
+    """This function is for calculating the tokens given the input message
+    This is a simplified implementation that is good enough for a rough
+    estimation when using openai models.
+    """
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
 
 # Set up synchronous LLM API response
 def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:BaseModel|None=None, maxtokens:int=1024, 
