@@ -1,3 +1,4 @@
+# Import relevant libraries
 import logging, openai, os, time, tiktoken
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -22,10 +23,11 @@ Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="ht
 async_Groq_client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
 async_OAI_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 async_Perplexity_client = AsyncOpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
+Chat_Groq_llm = ChatGroq(model=Groq_model, temperature=0,max_retries=1, max_tokens=1024, n=1)  
+Chat_OAI_llm = ChatOpenAI(model=OAI_model, temperature=0,max_retries=1, max_tokens=1024, n=1)
 tempscrappedfolder = 'temp_scraped_data'    # Set the folder used to temporarily store scrapped data
 WIPfolder = 'temp' # Set the folder used to hold temporary files (CSV)
-tablename = 'media_releases'    # Set the tablename for the sqlite database table used to store scrapped data 
-#tablename_websearch = 'media_releases_websearch'    # Set the tablename for the sqlite database table used to store scrapped data with websearch results
+tablename = 'news'    # Set the tablename for the sqlite database table used to store web scrapped data 
 dbfolder = 'database'
                            
 
@@ -85,6 +87,7 @@ def count_tokens(text:str, model:str="gpt-4o-mini")->int:
     """
     encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
+
 
 # Set up synchronous LLM API response
 def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:BaseModel|None=None, maxtokens:int=1024, 

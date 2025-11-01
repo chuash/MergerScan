@@ -1,3 +1,4 @@
+# Import relevant libraries
 import asyncio, json, openai, os, sqlite3
 import pandas as pd
 import time
@@ -109,7 +110,7 @@ def prompt_generator(data_list:List, sys_msg:str)->List[List[Dict]]:
         prompt_message_list.append([{"role": "system", "content": f"{sys_msg}"},{"role": "user", "content": f"<incoming-text>{item}</incoming-text>"}])
     return prompt_message_list
 
-tempfilepath = os.path.join(WIPfolder,'media_releases_websearch.csv')
+tempfilepath = os.path.join(WIPfolder,f'{tablename}_websearch.csv')
 
 if __name__ == "__main__":
     try:
@@ -131,7 +132,7 @@ if __name__ == "__main__":
         if 'Query1' in df1.columns:
             pass
         else:
-            #3a) Generate query 1 user prompt messages for all identified merger-related news , using the query 1 text supplied by user
+            #3a) Generate query 1 user prompt messages for each of the identified merger-related news , using the query 1 text supplied by user
             query1_list = []
             for item in org_entities:
                 query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {query1_user_input}")
@@ -139,10 +140,12 @@ if __name__ == "__main__":
             logger.info(f"List of {len(query1_prompt_message_list)} query 1 prompt messages successfully generated.")
            
             #3b) Execute Perplexity search for query 1 asynchronously, then parse the Perplexity responses via another LLM in order to produce structured outputs with citations
+            # As Perplexity API @ Tier 0 and Tier 1 are subject to rate limit of 50 RPM, need to keep chunk_size small, once there is accumulated expenditure and 
+            # Perplexity Tier is upgraded, can increase chunk size and do away with pauses
             query1_websearch_results = asyncio.run(main(data_list=query1_prompt_message_list, func=websearch, chunk_size=6, pause_duration=1))
             logger.info("Web search for query 1 successfully executed. Preparing to parse Perplexity responses via another LLM.")
             query1_struct_prompt_message_list = prompt_generator(data_list=[strip_markdown(item.choices[0].message.content) for item in query1_websearch_results], sys_msg=query1_structoutput_sys_msg)
-            struct_query1_websearch_results = asyncio.run(main(data_list=query1_struct_prompt_message_list,func=structured_output, chunk_size=10, pause_duration=1))  # can use larger chunks and shorter duration if using OpenAI
+            struct_query1_websearch_results = asyncio.run(main(data_list=query1_struct_prompt_message_list,func=structured_output, chunk_size=10, pause_duration=1))  # can use larger chunks and shorter duration subject to limit of 500 RPM
             logger.info("Web search with structured output for query 1 successfully executed")
             
             #3c)  Combine raw Perplexity search response with the structured output, then append to dataframe
@@ -151,7 +154,7 @@ if __name__ == "__main__":
 
             #3d) Write to temporary CSV and also to database.
             df1.to_csv(tempfilepath, index=False)
-            df1.drop(['Merger_Related', 'Merger_Entities'], axis=1).to_sql(f'media_releases_websearch_query1', con=conn, if_exists='append', index=False)
+            df1.drop(['Merger_Related', 'Merger_Entities'], axis=1).to_sql(f'{tablename}_websearch_query1', con=conn, if_exists='append', index=False)
 
         #4a) Carry on for the next few questions, 2, 3, 4
 

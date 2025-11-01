@@ -1,14 +1,19 @@
-import json, openai, os, sqlite3
+# Import relevant libraries
+import asyncio, json, openai, os, sqlite3
 import pandas as pd
 import time
 from groq import Groq
-from helper_functions.utility import MyError, setup_shared_logger, llm_output, Groq_model, Groq_client, OAI_model, OAI_client, tempscrappedfolder, tablename, dbfolder, WIPfolder
+from helper_functions.utility import (MyError, setup_shared_logger, llm_output, Groq_model, Groq_client, OAI_model, 
+                                      OAI_client, tempscrappedfolder, tablename, dbfolder, WIPfolder, async_llm_output,
+                                      async_OAI_client)
 from helper_functions.prompts import classifier_sys_msg
+from News_websearch import main, prompt_generator
 from openai import OpenAI
 from pathlib import Path
 from pydantic import BaseModel, Field
+from tqdm.asyncio import tqdm_asyncio
 from tqdm.auto import tqdm
-from typing import Annotated, Dict, List, Optional, Union
+from typing import Annotated, Dict, List, Optional, Union, Any
 from typing_extensions import Literal
 
 tqdm.pandas()
@@ -27,6 +32,13 @@ class classifier_response(BaseModel):
     Reasons: str = Field(..., description="A concise yet precise reasoning and justification as to whether given text is merger and acquisition related.")
     Merger_Related: Literal['true', 'false', 'unable to tell'] = Field(...,description="Respond 'true' if given text is merger and acquisition related, 'false' if otherwise. If unsure even after providing reasoning, reply 'unable to tell'.")
     Merger_Entities: Optional[List[str]] = Field(..., description="Captures the list of names of parties involved, if given text is merger and acquisition related.")
+
+
+async def output(chunk:List)-> List[Any]:
+    """Processes a list of LLM requests concurrently."""
+    tasks = [async_llm_output(client=async_OAI_client, model=OAI_model, prompt_messages=p, schema=classifier_response) for p in chunk]
+    results = await tqdm_asyncio.gather(*tasks, desc="Processing tasks")
+    return results
 
 
 if __name__ == "__main__":
@@ -70,20 +82,26 @@ if __name__ == "__main__":
             else:
             # 3) Pass the text in each data point in the combined DataFrame to LLM to decide if the text is related to merger and acquisition, and if so, extract the entities involved
             
-            # Check the number of data points, for small dataset, can use free version of Groq models, larger dataset, use OpenAI 
-                if len(combined_df) <= 200:
-            # Use Groq
-            # Calculate the delay based on Groq rate limit, meta-llama/llama-4-scout-17b-16e-instruct-> 30(RPM), 1K(RPD), 30K(TPM), 500K(TPD)
+            # Check the number of data points, for small dataset, to save money, use free version of Groq models (subject to rate limit capped at 30 RPM).
+            # For larger dataset, use OpenAI (subject to rate limit capped at 500 RPM)
+                if len(combined_df) <= 100: # time taken around 5min ()
+            # Using Groq
+            # As meta-llama/llama-4-scout-17b-16e-instruct is subject to rate limits: 30(RPM), 1K(RPD), 30K(TPM), 500K(TPD), need to introduce time delays to ensure wont overshoot limit
                     rate_limit_per_minute = 30
-                    delay = 60.0 / rate_limit_per_minute
+                    delay = (60.0 / rate_limit_per_minute)*0.8
                     combined_df['response'] = combined_df.progress_apply(lambda x: json.loads(llm_output(client=Groq_client, model=Groq_model, 
                                                         sys_msg=classifier_sys_msg, input=x['Text'], schema=classifier_response, 
                                                         delay_in_seconds=delay).output_text), axis=1)
                 else:
-            # Use OpenAI
-            # Determine the delay to be 1sec based on OpenAI Tier 1 rate limit, gpt-4o-mini -> Tier1:	500 (RPM) , 10,000 (RPD), 200,000 (TPM).
-                    combined_df['response'] = combined_df.progress_apply(lambda x: json.loads(llm_output(client = OAI_client, model=OAI_model,
-                                                        sys_msg=classifier_sys_msg, input=x['Text'], schema=classifier_response).output_text), axis=1)
+            # Using OpenAI
+            # gpt-4o-mini (Tier 1) is subject to rate limits : 500 (RPM), 10K (RPD), 200L (TPM). 
+            # Can afford to have no delay under sychronous mode, but if too slow, may want to revise this to asychronous
+                    #combined_df['response'] = combined_df.progress_apply(lambda x: json.loads(llm_output(client = OAI_client, model=OAI_model,
+                    #                                    sys_msg=classifier_sys_msg, input=x['Text'], schema=classifier_response).output_text), axis=1)
+                    
+                    prompt_message_list = prompt_generator(data_list=combined_df['Text'].to_list(), sys_msg=classifier_sys_msg)
+                    classifier_results = asyncio.run(main(data_list=prompt_message_list,func=output, chunk_size=10, pause_duration=1))
+                    combined_df['response'] = [item.choices[0].message.content for item in classifier_results]
             
             # Expand the 'response' column
                 expanded_response = combined_df['response'].apply(pd.Series)
@@ -92,7 +110,7 @@ if __name__ == "__main__":
                 df_final['Merger_Entities'] = df_final['Merger_Entities'].apply(lambda x: ',| '.join(x) if x is not None and len(x)>1 else '')
 
             # Write to CSV for as well as save to database
-                df_final.to_csv(os.path.join(WIPfolder,'media_releases.csv'), index=False) 
+                df_final.to_csv(os.path.join(WIPfolder,f'{tablename}.csv'), index=False) 
                 df_final.to_sql(f'{tablename}', con=conn, if_exists='append', index=False)
             
             # Update log upon successful execution
