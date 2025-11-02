@@ -1,10 +1,11 @@
 # Import relevant libraries
-import json, os, openai
+import json, os, openai, sqlite3
 import pandas as pd
 import uuid
-from datetime import date
+from datetime import datetime, date
 from groq import Groq
-from helper_functions.utility import Chat_OAI_llm, MyError, setup_shared_logger, count_tokens, check_for_malicious_intent
+from helper_functions.utility import (Chat_OAI_llm, Groq_client, Groq_model, OAI_client, OAI_model, dbfolder, MyError, 
+                                      setup_shared_logger, count_tokens, check_for_malicious_intent)
 from helper_functions.prompts import chatagent_sys_msg
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
@@ -143,6 +144,7 @@ workflow.add_edge("summarise_conversation", END)
 memory = MemorySaver()
 graph = workflow.compile(checkpointer=memory)
 
+
 def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
     """This function controls interaction with the chat agent. It takes in the user
     query and checks for malicious intent. If ok, the query is passed to the langgraph
@@ -150,26 +152,49 @@ def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
 
     # Safeguard the chatbot from malicious prompt
     # if prompt is deemed to be malicious, exit function with message
-    if check_for_malicious_intent(query) == "Y":
-        return "Sorry, potentially malicious prompt detected. This request cannot be processed."
+    if check_for_malicious_intent(client=Groq_client, model=Groq_model, user_message=query) == "Y":
+        return ("Sorry, potentially malicious prompt detected. This request cannot be processed.","")
     else:
         try:
             # Specify a thread so that historical conversation within memory can be accessed
             config = {"configurable": {"thread_id": id}}
             input = [HumanMessage(content=f"<incoming-text>{query}</incoming-text>")]
+            
             # Get LLM response
             output = langgraph.invoke({"messages": input},config)
             response = output['messages'][-1].content
             if len(output['urls'])>0 and query in output['urls'][0]:
-                citation = output['urls'][0][1]
+                citation = output['urls'][1]
             else:
                 citation = ""
 
-            return response, citation
+            # Log into database
+            conn = sqlite3.connect(f'{dbfolder}/data.db')
+            cursor = conn.cursor()
+            # Create table if not exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS agentlogs (
+                    id TEXT,
+                    log TEXT NOT NULL,
+                    timestamp TEXt NOT NULL
+                    )
+                ''')
+            # Insert data
+            cursor.execute("INSERT INTO agentlogs (id, log, timestamp) VALUES (?, ?, ?)", (id,str(output),datetime.now().strftime("%d %b %Y, %H:%M:%S")))
+            conn.commit()
+            
+            return (response, citation)
+        
         except MyError as e:
-             logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
+            logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Database connection error while executing {os.path.basename(__file__)}: {e}")
         except (Exception, BaseException) as e:
             logger.error(f"General error while executing {os.path.basename(__file__)}: {e}")
+        
+        finally:
+            if conn:
+                conn.close()
 
 if __name__ == "__main__":
      pass

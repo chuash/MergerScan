@@ -190,15 +190,23 @@ def check_for_malicious_intent(client:OpenAI|Groq, model:str, user_message:str)-
         {"role": "user","content": f"<incoming-text> {user_message} </incoming-text>"},
     ]
     # getting response from LLM, capping the number of output token at 1.
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=0,
-        top_p=1.0,
-        max_completion_tokens=1,
-        n=1,
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0,
+            top_p=1.0,
+            max_completion_tokens=1,
+            n=1,
+        )
+
+        return response.choices[0].message.content
+    
+    except openai.APIError as e:
+            raise MyError(f"LLM API error while checking for malicious intent: {e}")
+    except (Exception, BaseException) as e:
+            raise MyError(f"General error while checking for malicious intent: {e}")
+    
 
 
 # Function to check streamlit log in password
