@@ -163,6 +163,8 @@ def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
             # Get LLM response
             output = langgraph.invoke({"messages": input},config)
             response = output['messages'][-1].content
+            # to prevent streamlit from showing anything between $ signs as Latex when not intended to.
+            response = response.replace("$", "\\$")
             if len(output['urls'])>0 and query in output['urls'][0]:
                 citation = output['urls'][1]
             else:

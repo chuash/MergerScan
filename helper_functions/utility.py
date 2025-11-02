@@ -1,5 +1,6 @@
 # Import relevant libraries
-import logging, openai, os, time, tiktoken
+import hmac, logging, openai, os, time, tiktoken
+import streamlit as st
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from groq import Groq
@@ -210,31 +211,31 @@ def check_for_malicious_intent(client:OpenAI|Groq, model:str, user_message:str)-
 
 
 # Function to check streamlit log in password
-#def check_password():
-#    """This functions provides password protection for the
-#    streamlit app. Returns `True` if the user had the correct password,
-#    and user is thus allowed to access the streamlit app"""
+def check_password():
+    """This functions provides password protection for the
+    streamlit app. Returns `True` if the user had the correct password,
+    and user is thus allowed to access the streamlit app"""
 
-#    def password_entered():
-#        """Checks whether a password entered by the user is correct."""
-#        if hmac.compare_digest(st.session_state["password"], st.secrets["password"]):
-#            st.session_state["password_correct"] = True
-#            # DO NOT store the password.
-#            del st.session_state["password"]
-#        else:
-#            st.session_state["password_correct"] = False
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if hmac.compare_digest(st.session_state["password"], st.secrets["password"]):
+            st.session_state["password_correct"] = True
+            # DO NOT store the password.
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
 
-#    # Return True if the password is validated.
-#    if st.session_state.get("password_correct", False):
-#        return True
-#    # Show input for password.
-#    st.text_input(
-#        "Please enter password to proceed",
-#        type="password",
-#        on_change=password_entered,
-#        key="password",
-#    )
-#    if "password_correct" in st.session_state:
-#        st.error("😕 Password incorrect")
-#    return False
+    # Return True if the password is validated.
+    if st.session_state.get("password_correct", False):
+        return True
+    # Show input for password.
+    st.text_input(
+        "Please enter password to proceed",
+        type="password",
+        on_change=password_entered,
+        key="password",
+    )
+    if "password_correct" in st.session_state:
+        st.error("😕 Password incorrect")
+    return False
 
