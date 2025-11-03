@@ -1,4 +1,4 @@
-import streamlit_test as st
+import streamlit as st
 from helper_functions.utility import check_password
 
 # region <--------- Streamlit App Configuration --------->
