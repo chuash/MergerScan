@@ -7,3 +7,4 @@ st.write(
     "This page provides details on the objectives, scope and features of the app."
 )
 st.subheader("Objectives")
+# To insert text and sub-headers accordingly
