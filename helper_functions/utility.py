@@ -26,9 +26,9 @@ async_OAI_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 async_Perplexity_client = AsyncOpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
 Chat_Groq_llm = ChatGroq(model=Groq_model, temperature=0,max_retries=1, max_tokens=1024, n=1)  
 Chat_OAI_llm = ChatOpenAI(model=OAI_model, temperature=0,max_retries=1, max_tokens=1024, n=1)
-tempscrappedfolder = 'temp_scraped_data'    # Set the folder used to temporarily store scrapped data
-WIPfolder = 'temp' # Set the folder used to hold temporary files (CSV)
-tablename = 'news'    # Set the tablename for the sqlite database table used to store web scrapped data 
+tempscrappedfolder = 'temp_scraped_data'    # Set the folder name used to temporarily store scrapped data
+WIPfolder = 'temp' # Set the folder name used to hold temporary files
+tablename = 'news'    # Set the base tablename for the sqlite database table used to store web scrapped data 
 dbfolder = 'database'
                            
 
@@ -55,7 +55,7 @@ def setup_shared_logger(log_file_name="application.log"):
     # Prevent adding multiple handlers if setup_shared_logger is called multiple times
     if not logger.handlers:
         # Create a file handler
-        file_handler = logging.FileHandler(log_file_name)
+        file_handler = logging.FileHandler(log_file_name, mode='a')
         file_handler.setLevel(logging.INFO)
 
         # Create a formatter
@@ -71,7 +71,7 @@ def setup_shared_logger(log_file_name="application.log"):
 # Set scraper data collection date
 def set_collection_date(date:str=None, lookback:int=2):
     """Allows user to set the date from which to scrape from. If neither the date nor the lookback 
-    period is set, by default, the date is set to one day prior. if the lookback period is set, 
+    period is set, by default, the date is set to two days prior. if the lookback period is set, 
     the date is set to x days prior, where x is the lookback period.  
     """
     if date is not None:
@@ -154,6 +154,7 @@ async def async_llm_output(client:Groq|OpenAI, model:str, prompt_messages:List[D
         else:
               output_json_structure = None
         
+        # uses chat completion API instead of Responses API because cumbersome to write function to extract async content from Responses API
         response = await client.chat.completions.create(
             model=model,
             messages=prompt_messages,

@@ -51,7 +51,9 @@ async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List
             if schema:
                  output_json_structure = {
                                        "type": "json_schema",
-                                       "json_schema": {"schema": schema.model_json_schema()}
+                                       "json_schema": {
+                                           "name": schema.__name__,
+                                           "schema": schema.model_json_schema()}
                                         }
             else:
                 output_json_structure = None

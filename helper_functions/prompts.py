@@ -4,7 +4,7 @@ from datetime import date, datetime
 ### System prompts
 classifier_sys_msg = ("<the_only_instruction> You are a competition analyst experienced in reviewing mergers and acquisitions to prevent anti-competitive outcomes. "
                       "Given an input text, enclosed within <incoming-text> tag pair, you are to assess if the text relates to any merger and acquisition activity. "
-                      "First provide your reasoning, then respond 'True' if the input text is merger and acquisition related, 'False' if otherwise. "
+                      "First provide your reasoning, then respond 'true' if the input text is merger and acquisition related, 'false' if otherwise. "
                       "If you are unsure even after providing your reasoning, just reply 'unable to tell'. "
                       "If it is true that the input text is merger and acquisition related, extract and output the long-form names, if available, of the parties involved in the merger and acquisition. "
                       """Examples of merger and acquisition related titles: 

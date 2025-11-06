@@ -1,6 +1,7 @@
+import pandas as pd
 import sqlite3
 import streamlit as st
-from helper_functions.utility import check_password, dbfolder
+from helper_functions.utility import check_password, dbfolder, tablename
 
 # Use form.sg for bug reporting, after that replace "http://www.help.com.sg" with the form.sg url
 st.set_page_config(layout="wide", page_title="CCS Merger Scanning Platform", menu_items={
@@ -21,18 +22,31 @@ if not check_password():
 
 # Function to query from database
 @st.cache_data
-def query_data(database = f'{dbfolder}/data.db'):
-    conn = sqlite3.connect(database)
-    cursor = conn.cursor()
-    return
+def query_data(tablename:str, database:str = f'{dbfolder}/data.db'):
+    try:
+        conn = sqlite3.connect(database)
+        cursor = conn.cursor()
+        sqlquery = f"SELECT * FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
+        df = pd.read_sql_query(sqlquery, con=conn)
+        return df
+    except (Exception, BaseException, sqlite3.Error) as e:
+        pass
+    finally:
+        if conn:
+            conn.close()
+
+# Load all relevant datasets
+df_base = query_data(tablename=tablename)
+df_query1 = query_data(tablename=f'{tablename}_websearch_query1')
 
 # Divide real estate into 2 columns
-col_topleft, col_topright = st.columns(2, gap="medium")
+col_topleft, col_topright = st.columns([0.7,0.3], gap="medium")
 
 # on the left
 with col_topleft:
     # line chart
-    st.write("**1a. HDB Resale Price Index from 2004Q1 (index=100 in 2009Q1)**")
+    st.write("**Table 1....**")
+    st.dataframe(df_base.head(10))
 
 # on the right
 with col_topright:

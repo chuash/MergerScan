@@ -5,7 +5,7 @@ import time
 from groq import Groq
 from helper_functions.utility import (MyError, setup_shared_logger, llm_output, Groq_model, Groq_client, OAI_model, 
                                       OAI_client, tempscrappedfolder, tablename, dbfolder, WIPfolder, async_llm_output,
-                                      async_OAI_client)
+                                      async_OAI_client, async_Groq_client)
 from helper_functions.prompts import classifier_sys_msg
 from News_websearch import main, prompt_generator
 from openai import OpenAI
@@ -73,7 +73,7 @@ if __name__ == "__main__":
                 pass
         # if there is historical data, check and remove potential duplicates with the data scraped during the most recent run
             else:
-                query = f"SELECT Published_Date, Source, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})" # consider if need to include Source for comparison
+                query = f"SELECT Published_Date, Source, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
                 past_df = pd.read_sql_query(query, conn)
                 combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Source'].isin(past_df['Source'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
             
@@ -84,7 +84,7 @@ if __name__ == "__main__":
             
             # Check the number of data points, for small dataset, to save money, use free version of Groq models (subject to rate limit capped at 30 RPM).
             # For larger dataset, use OpenAI (subject to rate limit capped at 500 RPM)
-                if len(combined_df) <= 100: # time taken around 5min ()
+                if len(combined_df) <= 100:  # time taken around 4min
             # Using Groq
             # As meta-llama/llama-4-scout-17b-16e-instruct is subject to rate limits: 30(RPM), 1K(RPD), 30K(TPM), 500K(TPD), need to introduce time delays to ensure wont overshoot limit
                     rate_limit_per_minute = 30
@@ -94,16 +94,14 @@ if __name__ == "__main__":
                                                         delay_in_seconds=delay).output_text), axis=1)
                 else:
             # Using OpenAI
-            # gpt-4o-mini (Tier 1) is subject to rate limits : 500 (RPM), 10K (RPD), 200L (TPM). 
-            # Can afford to have no delay under sychronous mode, but if too slow, may want to revise this to asychronous
-                    #combined_df['response'] = combined_df.progress_apply(lambda x: json.loads(llm_output(client = OAI_client, model=OAI_model,
-                    #                                    sys_msg=classifier_sys_msg, input=x['Text'], schema=classifier_response).output_text), axis=1)
-                    
+            # gpt-4o-mini (Tier 1) is subject to rate limits : 500 (RPM), 10K (RPD), 200L (TPM).                     
                     prompt_message_list = prompt_generator(data_list=combined_df['Text'].to_list(), sys_msg=classifier_sys_msg)
-                    classifier_results = asyncio.run(main(data_list=prompt_message_list,func=output, chunk_size=10, pause_duration=1))
+                    classifier_results = asyncio.run(main(data_list=prompt_message_list,func=output, chunk_size=10, pause_duration=1)) # set the chunksize and duration to balance speed and the 500RPM openai limit
                     combined_df['response'] = [item.choices[0].message.content for item in classifier_results]
             
             # Expand the 'response' column
+            # convert to dict if necessary, before expanding the column
+                combined_df['response'] = combined_df['response'].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
                 expanded_response = combined_df['response'].apply(pd.Series)
             # Combine with the original DataFrame
                 df_final = pd.concat([combined_df.drop(['response'], axis=1), expanded_response], axis=1)
@@ -123,7 +121,7 @@ if __name__ == "__main__":
     except sqlite3.Error as e:
         logger.error(f"Database connection error while executing {os.path.basename(__file__)}: {e}")
     except (Exception, BaseException) as e:
-        logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
+        logger.error(f"General error while executing {os.path.basename(__file__)}: {e}")
     
     finally:
     # Ensure the database connection is closed
