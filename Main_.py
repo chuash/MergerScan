@@ -1,12 +1,15 @@
+import os
 import pandas as pd
 import sqlite3
 import streamlit as st
-from helper_functions.utility import check_password, dbfolder, tablename
+from helper_functions.utility import check_password, dbfolder, tablename, setup_shared_logger
 
-# Use form.sg for bug reporting, after that replace "http://www.help.com.sg" with the form.sg url
 st.set_page_config(layout="wide", page_title="CCS Merger Scanning Platform", menu_items={
-        'Report a bug': "http://www.help.com.sg",
+        'Report a bug': "https://form.gov.sg/690d973dff46ce8978dcd393",
         'About': "## The CCS Merger Scanning Platform by MAU and D2"})
+
+# Set up the shared logger
+logger = setup_shared_logger()
 
 st.title("CCS Merger Scanning Platform")
 
@@ -20,33 +23,91 @@ with st.expander("***Important Note***"):
 if not check_password():
     st.stop()
 
-# Function to query from database
+# Setting up variables in session state
+if 'merger_filter_button_clicked' not in st.session_state:
+    st.session_state.merger_filter_button_clicked = False
+
+if 'df_selected_value' not in st.session_state:
+    st.session_state.df_selected_value = None
+
 @st.cache_data
-def query_data(tablename:str, database:str = f'{dbfolder}/data.db'):
+def query_data(tablename:str, published_date:str=None, database:str = f'{dbfolder}/data.db'):
+    """Function to query from database"""
     try:
         conn = sqlite3.connect(database)
         cursor = conn.cursor()
-        sqlquery = f"SELECT * FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
+        if published_date is None:
+            sqlquery = f"SELECT * FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename}) ORDER BY Published_Date DESC"
+        else:
+            sqlquery = f"SELECT * FROM {tablename} WHERE Published_Date >= '{published_date}' ORDER BY Published_Date DESC"
+        #print(sqlquery)
         df = pd.read_sql_query(sqlquery, con=conn)
         return df
     except (Exception, BaseException, sqlite3.Error) as e:
-        pass
+        logger.error(f"Error while executing {os.path.basename(__file__)} and querying from the database table named {tablename}: {e}")
     finally:
         if conn:
             conn.close()
 
-# Load all relevant datasets
-df_base = query_data(tablename=tablename)
-df_query1 = query_data(tablename=f'{tablename}_websearch_query1')
+def click_merger_filter():
+    """Callback function to update session state when the button is clicked."""
+    st.session_state.merger_filter_button_clicked = True
+
+def reset_merger_filter():
+    """Callback function to update session state when the button is clicked."""
+    st.session_state.merger_filter_button_clicked = False
 
 # Divide real estate into 2 columns
-col_topleft, col_topright = st.columns([0.7,0.3], gap="medium")
+col_topleft, col_topright = st.columns([0.7,0.3], gap="small")
 
 # on the left
 with col_topleft:
-    # line chart
-    st.write("**Table 1....**")
-    st.dataframe(df_base.head(10))
+    # Divide real estate into 3 columns
+    left_left, left_centre, left_right = st.columns([0.5,0.4,0.1], gap="small")
+    with left_left:
+        st.date_input("Filter for news articles published after [date]", value=None, key='published_date_filter', format="YYYY-MM-DD")
+    with left_centre:
+        st.button("Filter for merger-related news", key='merger_filter', help='Click to filter for merger-related news classified by AI', type="secondary", on_click=click_merger_filter)
+    with left_right:
+        st.button("Reset", key='reset_merger_filter', help='Click to see all news', type="primary", on_click=reset_merger_filter)
+    
+    st.divider()
+
+    st.write("**Table 1: News articles**")
+    with st.spinner("Fetching data..."):
+        df_base = query_data(tablename=tablename, published_date=st.session_state.published_date_filter)
+        df_base["Selected"] = False
+        df_base = df_base[['Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source']]
+        if st.session_state.merger_filter:
+            df_base = df_base[df_base['Merger_Related'] == 'true']
+        df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
+        st.dataframe(df_base_style)
+    
+    #edited_df = st.data_editor(
+    #df_base_style,
+    #column_config={
+    #    "Selected": st.column_config.CheckboxColumn(
+    #        "Select",
+    #        help="Select only one news article at a time to view research",
+    #        default=False,
+    #    )
+    #},
+    #hide_index=True,
+    #num_rows="fixed",
+#)
+#selected_data = edited_df[edited_df["Selected"]]
+#if not selected_data.empty:
+#    st.write("Selected data:")
+#    st.write(selected_data)
+
+    st.write("**Table 2: Research related to merger news**")
+    
+    #    with st.spinner("Fetching data..."):
+    #        df_query1 = query_data(tablename=f'{tablename}_websearch_query1', published_date=st.session_state.published_date_filter)
+    #        merged_df = pd.merge(df_base, df_query1, on=['Published_Date','Source','Extracted_Date','Text'], how='inner').drop(['Reasons','Source'], axis=1, inplace=False)
+    #        merged_df = merged_df[merged_df['Text'] == selected_Text]
+    #        st.dataframe(merged_df, use_container_width=True)
+
 
 # on the right
 with col_topright:

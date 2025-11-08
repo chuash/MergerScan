@@ -74,7 +74,9 @@ def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_us
             # Add the news source
             df['Source'] = 'Australian Competition & Consumer Commission'
             # Add the extraction timestamp
-            df['Extracted_Date'] = datetime.now().date().strftime("%d %b %Y")
+            df['Extracted_Date'] = datetime.now().date().strftime("%Y-%m-%d")
+            # Convert the publish date format
+            df['Published_Date'] = df['Published_Date'].apply(lambda x: datetime.strptime(x, '%d %b %Y').strftime("%Y-%m-%d"))
             df = df[['Published_Date', 'Source', 'Extracted_Date', 'Text']]
             # Export as csv
             df.to_csv(os.path.join(folder,f'ACCC_from_{fromdate}.csv'), index=False)
