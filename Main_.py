@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import streamlit as st
 from helper_functions.utility import check_password, dbfolder, tablename, setup_shared_logger
+from helper_functions.prompts import Query1_user_input, Query2_user_input, Query3_user_input
 
 st.set_page_config(layout="wide", page_title="CCS Merger Scanning Platform", menu_items={
         'Report a bug': "https://form.gov.sg/690d973dff46ce8978dcd393",
@@ -73,40 +74,59 @@ with col_topleft:
     
     st.divider()
 
-    st.write("**Table 1: News articles**")
+    st.write("### Table 1: News articles")
     with st.spinner("Fetching data..."):
+        # Querying from database table 'news'
         df_base = query_data(tablename=tablename, published_date=st.session_state.published_date_filter)
+        # Adding a 'Selected' column for selection
         df_base["Selected"] = False
-        df_base = df_base[['Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source']]
         if st.session_state.merger_filter:
             df_base = df_base[df_base['Merger_Related'] == 'true']
         df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
-        st.dataframe(df_base_style)
-    
-    #edited_df = st.data_editor(
-    #df_base_style,
-    #column_config={
-    #    "Selected": st.column_config.CheckboxColumn(
-    #        "Select",
-    #        help="Select only one news article at a time to view research",
-    #        default=False,
-    #    )
-    #},
-    #hide_index=True,
-    #num_rows="fixed",
-#)
-#selected_data = edited_df[edited_df["Selected"]]
-#if not selected_data.empty:
-#    st.write("Selected data:")
-#    st.write(selected_data)
+        edited_df = st.data_editor(
+                        df_base_style,
+                        column_order= ('Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source'),
+                        column_config={"Selected": st.column_config.CheckboxColumn(
+                            label="Select",
+                            help="Select only one news article at a time to view research",
+                            pinned=True,
+                            default=False,
+                            )
+                        },
+                        hide_index=None,
+                        disabled=['Merger_Related'],
+                        num_rows="fixed",
+                    )
+        st.write("***Please only select one news article, at a time, to view research details***")
 
-    st.write("**Table 2: Research related to merger news**")
+    selected_data = edited_df[edited_df["Selected"]]
     
-    #    with st.spinner("Fetching data..."):
-    #        df_query1 = query_data(tablename=f'{tablename}_websearch_query1', published_date=st.session_state.published_date_filter)
-    #        merged_df = pd.merge(df_base, df_query1, on=['Published_Date','Source','Extracted_Date','Text'], how='inner').drop(['Reasons','Source'], axis=1, inplace=False)
-    #        merged_df = merged_df[merged_df['Text'] == selected_Text]
-    #        st.dataframe(merged_df, use_container_width=True)
+    if not selected_data.empty:
+        text = selected_data['Text'].values[0]
+        published = selected_data['Published_Date'].values[0]
+        extracted = selected_data['Extracted_Date'].values[0]
+        source = selected_data['Source'].values[0]
+        df_query1 = query_data(tablename=f'{tablename}_websearch_query1', published_date=st.session_state.published_date_filter)
+        df_query1 = df_query1.loc[(df_query1['Published_Date']==published) & (df_query1['Extracted_Date']==extracted) & (df_query1['Source']==source) & (df_query1['Text']==text)]
+        if len(df_query1)>0:
+                merged_df = pd.merge(df_base, df_query1, on=['Published_Date','Source','Extracted_Date','Text'], how='inner').drop(['Reasons','Source','Selected','Merger_Related'], axis=1, inplace=False)
+                query1 = merged_df['Query1'].values[0]
+                #query2 =....
+        else:
+            nil_response = 'News article is non-merger related, hence no research was done'
+    
+    st.write("### Table 2: Research related to merger news")
+        
+    col_bottomleft, col_bottomright = st.columns([0.2,0.8], gap="small")
+    with col_bottomleft:
+        query_option = st.selectbox(
+                        "Select to view the research details",
+                        ("Query1", "Query2", "Query3"),
+                        )
+    with col_bottomright:
+        st.write("**Research Question:**")
+        st.write(eval(f"{query_option}_user_input"))
+            
 
 
 # on the right

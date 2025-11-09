@@ -6,8 +6,8 @@ from groq import Groq
 from helper_functions.utility import (MyError, setup_shared_logger, Groq_model, Groq_client, OAI_model, OAI_client, 
                                       async_Groq_client, async_OAI_client, async_Perplexity_client, Perplexity_model, 
                                       async_llm_output, tablename, dbfolder, WIPfolder)
-from helper_functions.prompts import (websearch_raw_sys_msg, query1_structoutput_sys_msg, query1_user_input, query2_user_input, 
-                                      query3_user_input)
+from helper_functions.prompts import (websearch_raw_sys_msg, query1_structoutput_sys_msg, Query1_user_input, Query2_user_input, 
+                                      Query3_user_input)
 from openai import OpenAI, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pathlib import Path
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         #3a) Generate query 1 user prompt messages for each of the identified merger-related news , using the query 1 text supplied by user
                 query1_list = []
                 for item in org_entities:
-                    query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {query1_user_input}")
+                    query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {Query1_user_input}")
                 query1_prompt_message_list = prompt_generator(data_list=query1_list, sys_msg=websearch_raw_sys_msg)
                 logger.info(f"List of {len(query1_prompt_message_list)} query 1 prompt messages successfully generated.")
             
