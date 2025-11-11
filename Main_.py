@@ -1,4 +1,4 @@
-import os
+import json, os
 import pandas as pd
 import sqlite3
 import streamlit as st
@@ -30,6 +30,9 @@ if 'merger_filter_button_clicked' not in st.session_state:
 
 if 'df_selected_value' not in st.session_state:
     st.session_state.df_selected_value = None
+
+#if 'websearch_response' not in st.session_state:
+#    st.session_state.websearch_response = None
 
 @st.cache_data
 def query_data(tablename:str, published_date:str=None, database:str = f'{dbfolder}/data.db'):
@@ -75,32 +78,34 @@ with col_topleft:
     st.divider()
 
     st.write("### Table 1: News articles")
-    with st.spinner("Fetching data..."):
-        # Querying from database table 'news'
-        df_base = query_data(tablename=tablename, published_date=st.session_state.published_date_filter)
-        # Adding a 'Selected' column for selection
-        df_base["Selected"] = False
-        if st.session_state.merger_filter:
-            df_base = df_base[df_base['Merger_Related'] == 'true']
-        df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
-        edited_df = st.data_editor(
-                        df_base_style,
-                        column_order= ('Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source'),
-                        column_config={"Selected": st.column_config.CheckboxColumn(
-                            label="Select",
-                            help="Select only one news article at a time to view research",
-                            pinned=True,
-                            default=False,
-                            )
-                        },
-                        hide_index=None,
-                        disabled=['Merger_Related'],
-                        num_rows="fixed",
-                    )
-        st.write("***Please only select one news article, at a time, to view research details***")
+
+    # Querying from database table 'news'
+    df_base = query_data(tablename=tablename, published_date=st.session_state.published_date_filter)
+    # Adding a 'Selected' column for selection
+    df_base["Selected"] = False
+    # If the "Filter for merger-related news" button is clicked, filter accordingly
+    if st.session_state.merger_filter:
+        df_base = df_base[df_base['Merger_Related'] == 'true']
+    # If the value of the cell in "Merger_Related" column is true, highlight cell in green
+    df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
+    edited_df = st.data_editor(
+                    df_base_style,
+                    column_order= ('Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source'),
+                    column_config={"Selected": st.column_config.CheckboxColumn(
+                        label="Select",
+                        help="Select only one news article at a time to view research",
+                        pinned=True,
+                        default=False,
+                        )
+                    },
+                    hide_index=None,
+                    disabled=['Merger_Related'],
+                    num_rows="fixed",
+                )
+    st.write("***Please only select one news article, at a time, to view research details***")
 
     selected_data = edited_df[edited_df["Selected"]]
-    
+    # if the particular record is selected by clicking on one of the checkboxes
     if not selected_data.empty:
         text = selected_data['Text'].values[0]
         published = selected_data['Published_Date'].values[0]
@@ -108,26 +113,31 @@ with col_topleft:
         source = selected_data['Source'].values[0]
         df_query1 = query_data(tablename=f'{tablename}_websearch_query1', published_date=st.session_state.published_date_filter)
         df_query1 = df_query1.loc[(df_query1['Published_Date']==published) & (df_query1['Extracted_Date']==extracted) & (df_query1['Source']==source) & (df_query1['Text']==text)]
+        # If there is matching records
         if len(df_query1)>0:
-                merged_df = pd.merge(df_base, df_query1, on=['Published_Date','Source','Extracted_Date','Text'], how='inner').drop(['Reasons','Source','Selected','Merger_Related'], axis=1, inplace=False)
-                query1 = merged_df['Query1'].values[0]
-                #query2 =....
-        else:
-            nil_response = 'News article is non-merger related, hence no research was done'
+                # When there are other queries, query the other tables accordingly and then merge to get df_query_combined. For now, to simulate df_query_combined, do a .copy()
+                df_query_combined = df_query1.copy()
+                merged_df = pd.merge(df_base, df_query_combined, on=['Published_Date','Source','Extracted_Date','Text'], how='inner')#.drop(['Reasons','Source','Selected','Merger_Related'], axis=1, inplace=False)
     
     st.write("### Table 2: Research related to merger news")
         
     col_bottomleft, col_bottomright = st.columns([0.2,0.8], gap="small")
-    with col_bottomleft:
-        query_option = st.selectbox(
-                        "Select to view the research details",
-                        ("Query1", "Query2", "Query3"),
-                        )
-    with col_bottomright:
-        st.write("**Research Question:**")
-        st.write(eval(f"{query_option}_user_input"))
+    if not selected_data.empty and len(df_query1)>0:
+        with col_bottomleft:
+                query_option = st.radio(
+                                "Select to view the research details",
+                                [field for field in df_query1.columns if "Query" in field],
+                                )
             
-
+        with col_bottomright:
+            st.write("**Research Question:**")
+            st.write(eval(f"{query_option}_user_input"))
+            st.write("**Research Results:**")
+            st.dataframe(pd.DataFrame(json.loads(eval(merged_df[query_option].values[0])[2])['response']))
+            #st.text_area(label='**Research results**', height='content', value=json.loads(eval(merged_df[query_option].values[0])[2])['response'])
+            st.write("**Research Citations/Urls:**")
+            st.dataframe(pd.DataFrame(eval(merged_df[query_option].values[0])[1], columns=['Urls']))
+            
 
 # on the right
 with col_topright:
