@@ -62,7 +62,7 @@ def reset_merger_filter():
     st.session_state.merger_filter_button_clicked = False
 
 # Divide real estate into 2 columns
-col_topleft, col_topright = st.columns([0.7,0.3], gap="small")
+col_topleft, col_topright = st.columns([0.7,0.3], gap="small",border=True)
 
 # on the left
 with col_topleft:
@@ -101,6 +101,7 @@ with col_topleft:
                     hide_index=None,
                     disabled=['Merger_Related'],
                     num_rows="fixed",
+                    key='news_table'
                 )
     st.write("***Please only select one news article, at a time, to view research details***")
 
@@ -127,19 +128,28 @@ with col_topleft:
                 query_option = st.radio(
                                 "Select to view the research details",
                                 [field for field in df_query1.columns if "Query" in field],
+                                key='query_options'
                                 )
             
         with col_bottomright:
             st.write("**Research Question:**")
             st.write(eval(f"{query_option}_user_input"))
             st.write("**Research Results:**")
-            st.dataframe(pd.DataFrame(json.loads(eval(merged_df[query_option].values[0])[2])['response']))
-            #st.text_area(label='**Research results**', height='content', value=json.loads(eval(merged_df[query_option].values[0])[2])['response'])
-            st.write("**Research Citations/Urls:**")
-            st.dataframe(pd.DataFrame(eval(merged_df[query_option].values[0])[1], columns=['Urls']))
+            st.dataframe(data=pd.DataFrame(json.loads(eval(merged_df[query_option].values[0])[2])['response']),key='research_results_table')
+            st.write("**Web Search Urls:**")
+            st.dataframe(data=pd.DataFrame(eval(merged_df[query_option].values[0])[1], columns=['Urls']),
+                         column_config={"Urls": st.column_config.LinkColumn(    
+                                        help="Click to visit the web search urls")}, key='url_table') 
             
 
 # on the right
 with col_topright:
-    # bar chart
-    st.write("**1b. HDB Median Resale Prices($), by flat types**")
+    form = st.form(key="research_chatbot")
+    form.markdown("#### ResearchChat-Your Friendly AI Assistant")
+
+    user_prompt_chat = form.text_area(
+    """Pose your queries here and the assistant\
+    will provide you with curated answers sourced from internet, where applicable""",
+    height=200,
+    key="research_chatbot_text",
+)
