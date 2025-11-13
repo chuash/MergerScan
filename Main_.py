@@ -1,9 +1,10 @@
 import json, os
 import pandas as pd
-import sqlite3
+import sqlite3, uuid
 import streamlit as st
 from helper_functions.utility import check_password, dbfolder, tablename, setup_shared_logger
 from helper_functions.prompts import Query1_user_input, Query2_user_input, Query3_user_input
+from Chat_agent import chatagent_response
 
 st.set_page_config(layout="wide", page_title="CCS Merger Scanning Platform", menu_items={
         'Report a bug': "https://form.gov.sg/690d973dff46ce8978dcd393",
@@ -28,11 +29,8 @@ if not check_password():
 if 'merger_filter_button_clicked' not in st.session_state:
     st.session_state.merger_filter_button_clicked = False
 
-if 'df_selected_value' not in st.session_state:
-    st.session_state.df_selected_value = None
-
-#if 'websearch_response' not in st.session_state:
-#    st.session_state.websearch_response = None
+if 'userid' not in st.session_state:
+    st.session_state.userid = str(uuid.uuid4().hex)
 
 @st.cache_data
 def query_data(tablename:str, published_date:str=None, database:str = f'{dbfolder}/data.db'):
@@ -62,12 +60,12 @@ def reset_merger_filter():
     st.session_state.merger_filter_button_clicked = False
 
 # Divide real estate into 2 columns
-col_topleft, col_topright = st.columns([0.7,0.3], gap="small",border=True)
+col_topleft, col_topright = st.columns([0.65,0.35], gap="small",border=True)
 
 # on the left
 with col_topleft:
     # Divide real estate into 3 columns
-    left_left, left_centre, left_right = st.columns([0.5,0.4,0.1], gap="small")
+    left_left, left_centre, left_right = st.columns([0.45,0.4,0.15], gap="small")
     with left_left:
         st.date_input("Filter for news articles published after [date]", value=None, key='published_date_filter', format="YYYY-MM-DD")
     with left_centre:
@@ -144,12 +142,19 @@ with col_topleft:
 
 # on the right
 with col_topright:
-    form = st.form(key="research_chatbot")
-    form.markdown("#### ResearchChat-Your Friendly AI Assistant")
+    form = st.form(key="chat_assistant")
+    form.markdown("#### Your Friendly AI Chat Assistant")
 
     user_prompt_chat = form.text_area(
-    """Pose your queries here and the assistant\
+    """Post your queries here and the assistant\
     will provide you with curated answers sourced from internet, where applicable""",
     height=200,
-    key="research_chatbot_text",
-)
+    key="chat_assistant_text")
+
+    if form.form_submit_button("Submit"):
+        st.toast(f"Query Submitted - {user_prompt_chat}")
+        with st.spinner("Fetching results..."):
+            response, citation = chatagent_response(query=user_prompt_chat, id=st.session_state.userid)
+            st.write(response)
+            if len(citation) > 0:
+                st.write(citation)
