@@ -62,6 +62,8 @@ if __name__ == "__main__":
             logger.warning(f"No CSV files found in folder '{tempscrappedfolder}'.")
         else:
             combined_df = pd.concat(dfs, ignore_index=True)
+            # remove any duplicated news records
+            combined_df = combined_df.drop_duplicates(subset=['Published_Date', 'Source', 'Text'])
 
         # 2) Establish connection to database 
             conn = sqlite3.connect(f'{dbfolder}/data.db')

@@ -1,286 +1,166 @@
+import json, os
+import pandas as pd
+import sqlite3, uuid
 import streamlit as st
-from helper_functions.utility import check_password
+from helper_functions.utility import check_password, dbfolder, tablename, setup_shared_logger
+from helper_functions.prompts import Query1_user_input, Query2_user_input, Query3_user_input
+from Chat_agent import chatagent_response
 
-# region <--------- Streamlit App Configuration --------->
-st.set_page_config(layout="wide", page_title="HDB Resale Tips App")
-# endregion <--------- Streamlit App Configuration --------->
+st.set_page_config(layout="wide", page_title="CCS Merger Scanning Platform", menu_items={
+        'Report a bug': "https://form.gov.sg/690d973dff46ce8978dcd393",
+        'About': "## The CCS Merger Scanning Platform by MAU and D2"})
 
-st.title("HDB Resale Tips App")
+# Set up the shared logger
+logger = setup_shared_logger()
 
-with st.expander("*Disclaimer*"):
+st.title("CCS Merger Scanning Platform")
+
+with st.expander("***Important Note***"):
     st.write(
-        """
-
-    **IMPORTANT NOTICE**:
-
-    This web application is a prototype developed for **educational purposes only**. The information provided here is **NOT intended for real-world usage** and should not be relied upon for making any decisions, especially those related to financial, legal, or healthcare matters.
-
-    **Furthermore, please be aware that the LLM may generate inaccurate or incorrect information. You assume full responsibility for how you use any generated output.**
-
-    Always consult with qualified professionals for accurate and personalized advice.
-
-    """
-    )
-
-# st.cache_data.clear()
+    "This tool relies on AI-generated content, which may include inaccuracies or hallucinations. "
+    "Users are advised to independently verify all information and not rely solely on these responses. "
+    "Please cross-check important details through separate sources where necessary. ")
 
 # Do not continue if check_password is not True.
 if not check_password():
     st.stop()
 
+# Setting up variables in session state
+if 'merger_filter_button_clicked' not in st.session_state:
+    st.session_state.merger_filter_button_clicked = False
 
-# Declaring functions relevant for visualisation
+if 'userid' not in st.session_state:
+    st.session_state.userid = None 
+    #str(uuid.uuid4().hex)
+
 @st.cache_data
-def load_data(directory="./data"):
-    """This function loads all relevant datasets for visualisation
+def query_data(tablename:str, published_date:str=None, database:str = f'{dbfolder}/data.db'):
+    """Function to query from database"""
+    try:
+        conn = sqlite3.connect(database)
+        cursor = conn.cursor()
+        if published_date is None:
+            sqlquery = f"SELECT * FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename}) ORDER BY Published_Date DESC"
+        else:
+            sqlquery = f"SELECT * FROM {tablename} WHERE Published_Date >= '{published_date}' ORDER BY Published_Date DESC"
+        #print(sqlquery)
+        df = pd.read_sql_query(sqlquery, con=conn)
+        return df
+    except (Exception, BaseException, sqlite3.Error) as e:
+        logger.error(f"Error while executing {os.path.basename(__file__)} and querying from the database table named {tablename}: {e}")
+    finally:
+        if conn:
+            conn.close()
 
-    Args:
-        directory (str, optional): Directory where data files are stored. Defaults to "./data".
+def click_merger_filter():
+    """Callback function to update session state when the button is clicked."""
+    st.session_state.merger_filter_button_clicked = True
 
-    Returns:
-        _type_: relevant datasets in pandas dataframe
-    """
-    filelist = [
-        "1_HDBResalePriceIndex2009_2024.csv",
-        "2_HDBMedianResalePrices2020_2024.csv",
-        "3_HDBResalePricesDetailsOct23_Oct24.csv",
-        "4_CEAAgentTransactionsSep23-Sep24.csv",
-    ]
-    datalist = []
-    for file in filelist:
-        # Read in all csv data
-        df = pd.read_csv(f"{directory}/" + file)
-        datalist.append(df)
-    return datalist[0], datalist[1], datalist[2], datalist[3]
-
-
-# Load all relevant datasets for visualisation
-df1, df2, df3, df4 = load_data()
-df3["lease_commence_date"] = df3["lease_commence_date"].astype(str)
-
-# Initialise memory for RenoChat in session_state
-if "chatbot_memory" not in st.session_state:
-    st.session_state["chatbot_memory"] = [{"role": "system", "content": system_msg}]
-
-st.markdown(
-    "### Need help with buying HDB resale flats? You may find the following 3 tools useful 😃"
-)
-
-st.markdown("#### 1. ResaleStats - Your Insightful Data Illustrator")
+def reset_merger_filter():
+    """Callback function to update session state when the button is clicked."""
+    st.session_state.merger_filter_button_clicked = False
 
 # Divide real estate into 2 columns
-col_topleft, col_topright = st.columns(2, gap="medium")
+col_topleft, col_topright = st.columns([0.65,0.35], gap="small",border=True)
 
 # on the left
 with col_topleft:
-    # line chart
-    st.write("**1a. HDB Resale Price Index from 2004Q1 (index=100 in 2009Q1)**")
-    st.line_chart(df1, x="quarter", y="index", x_label="quarter", y_label="Price Index")
+    # Divide real estate into 3 columns
+    left_left, left_centre, left_right = st.columns([0.45,0.4,0.15], gap="small")
+    with left_left:
+        st.date_input("Filter for news articles published after [date]", value=None, key='published_date_filter', format="YYYY-MM-DD")
+    with left_centre:
+        st.button("Filter for merger-related news", key='merger_filter', help='Click to filter for merger-related news classified by AI', type="secondary", on_click=click_merger_filter)
+    with left_right:
+        st.button("Reset", key='reset_merger_filter', help='Click to see all news', type="primary", on_click=reset_merger_filter)
+    
+    st.divider()
+
+    st.write("### Table 1: News articles")
+
+    # Querying from database table 'news'
+    df_base = query_data(tablename=tablename, published_date=st.session_state.published_date_filter)
+    # Adding a 'Selected' column for selection
+    df_base["Selected"] = False
+    # If the "Filter for merger-related news" button is clicked, filter accordingly
+    if st.session_state.merger_filter:
+        df_base = df_base[df_base['Merger_Related'] == 'true']
+    # If the value of the cell in "Merger_Related" column is true, highlight cell in green
+    df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
+    edited_df = st.data_editor(
+                    df_base_style,
+                    column_order= ('Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source'),
+                    column_config={"Selected": st.column_config.CheckboxColumn(
+                        label="Select",
+                        help="Select only one news article at a time to view research",
+                        pinned=True,
+                        default=False,
+                        )
+                    },
+                    hide_index=None,
+                    disabled=['Merger_Related'],
+                    num_rows="fixed",
+                    key='news_table'
+                )
+    st.write("***Please only select one news article, at a time, to view research details***")
+
+    selected_data = edited_df[edited_df["Selected"]]
+    # if the particular record is selected by clicking on one of the checkboxes
+    if not selected_data.empty:
+        text = selected_data['Text'].values[0]
+        published = selected_data['Published_Date'].values[0]
+        extracted = selected_data['Extracted_Date'].values[0]
+        source = selected_data['Source'].values[0]
+        df_query1 = query_data(tablename=f'{tablename}_websearch_query1', published_date=st.session_state.published_date_filter)
+        df_query1 = df_query1.loc[(df_query1['Published_Date']==published) & (df_query1['Extracted_Date']==extracted) & (df_query1['Source']==source) & (df_query1['Text']==text)]
+        # If there is matching records
+        if len(df_query1)>0:
+                # When there are other queries, query the other tables accordingly and then merge to get df_query_combined. For now, to simulate df_query_combined, do a .copy()
+                df_query_combined = df_query1.copy()
+                merged_df = pd.merge(df_base, df_query_combined, on=['Published_Date','Source','Extracted_Date','Text'], how='inner')#.drop(['Reasons','Source','Selected','Merger_Related'], axis=1, inplace=False)
+    
+    st.write("### Table 2: Research related to merger news")
+        
+    col_bottomleft, col_bottomright = st.columns([0.2,0.8], gap="small")
+    if not selected_data.empty and len(df_query1)>0:
+        with col_bottomleft:
+                query_option = st.radio(
+                                "Select to view the research details",
+                                [field for field in df_query1.columns if "Query" in field],
+                                key='query_options'
+                                )
+            
+        with col_bottomright:
+            st.write("**Research Question:**")
+            st.write(eval(f"{query_option}_user_input"))
+            st.write("**Research Results:**")
+            st.dataframe(data=pd.DataFrame(json.loads(eval(merged_df[query_option].values[0])[2])['response']),key='research_results_table')
+            st.write("**Web Search Urls:**")
+            st.dataframe(data=pd.DataFrame(eval(merged_df[query_option].values[0])[1], columns=['Urls']),
+                         column_config={"Urls": st.column_config.LinkColumn(    
+                                        help="Click to visit the web search urls")}, key='url_table') 
+            
 
 # on the right
 with col_topright:
-    # bar chart
-    st.write("**1b. HDB Median Resale Prices($), by flat types**")
-    # radio buttons to select either by location or period
-    period_location = st.radio(
-        "2) Filter HDB median resale prices by: ",
-        ["Location", "Period"],
-        key="period_loc_selector",
-        horizontal=True,
-        captions=[
-            "Prices across periods (from 2020Q1) for a selected location",
-            "Prices across locations for a selected time period",
-        ],
-    )
-    # if location is selected
-    if period_location == "Location":
-        loc_value = st.selectbox(
-            "Select a location", df2.town.unique().tolist(), key="loc_selector"
-        )
-        st.bar_chart(
-            df2[df2["town"] == loc_value],
-            x="quarter",
-            y="price",
-            y_label="price($)",
-            color="flat_type",
-            stack=False,
-        )
-    else:
-        period_value = st.selectbox(
-            "Select a time period", df2.quarter.unique().tolist(), key="period_selector"
-        )
-        st.bar_chart(
-            df2[df2["quarter"] == period_value],
-            x="town",
-            y="price",
-            y_label="price($)",
-            color="flat_type",
-            stack=False,
-        )
-
-st.divider()
-
-st.write("*The following location filter applies to both tables in 1c and 1d*")
-townoptions = st.multiselect(
-    "Select the location(s)",
-    options=df3.town.unique().tolist(),
-    default=df3.town.unique().tolist(),
-    key="town_selector",
-)
-
-# Divide real estate into 2 columns
-col_midleft, col_midright = st.columns(2, gap="medium")
-
-with col_midleft:
-    st.write("**1c. HDB Resale Transaction Details (Oct 2023-Oct 2024)**")
-    fieldoptions = st.multiselect(
-        "Select the fields to be displayed",
-        options=df3.columns.tolist(),
-        default=df3.columns.tolist(),
-        key="field_selector",
-    )
-    monthoptions = st.multiselect(
-        "Select the time period(s)",
-        options=df3.month.unique().tolist(),
-        default=df3.month.unique().tolist(),
-        key="month_selector",
-    )
-    flatoptions = st.multiselect(
-        "Select the flat type(s)",
-        options=df3.flat_type.unique().tolist(),
-        default=df3.flat_type.unique().tolist(),
-        key="flat_selector",
-    )
-    # Subset HDB Resale Transaction Details dataset based on applied filters
-    df3_filter = df3[
-        (df3["month"].isin(monthoptions))
-        & (df3["town"].isin(townoptions))
-        & df3["flat_type"].isin(flatoptions)
-    ]
-    # display HDB Resale Transaction Details data as table visualisation
-    st.dataframe(df3_filter, column_order=fieldoptions, key="pricedetails_df")
-
-    # Widget for chatting with HDB Resale Transaction Details data
-    form = st.form(key="ResaleTxnDetails")
-    form.write("Chat with your data!")
-    user_query_HDB = form.text_area(
-        """Try querying the above HDB resale transaction details data in words""",
-        height=30,
-        key="ResaleTxnDetails_text",
-    )
-    # when submit button is pressed
-    if form.form_submit_button("Submit"):
-        st.toast(f"Query Submitted - {user_query_HDB}")
-        with st.spinner("Fetching results..."):
-            # response from data query agent
-            response_HDB = agent.LLM_query_df(
-                user_query_HDB, df3_filter, agent.system_msg_HDB
-            )
-            st.write(response_HDB)
-
-with col_midright:
-    st.write("**1d. CEA Agent Transaction Details (Sep 2023-Sep 2024)**")
-    # Subset CEA Agent Transaction Details dataset based on applied town filter
-    df4_filter = df4[df4["town"].isin(townoptions)]
-    # display CEA Agent Transaction Details data as table visualisation
-    st.dataframe(
-        df4_filter,
-        column_order=[
-            "resale_transaction_date",
-            "town",
-            "sales_agent_name",
-            "real_estate_company_name",
-        ],
-        key="CEAdetails_df",
-    )
-
-    # Widget for chatting with CEA Agent Transaction Details data
-    form = st.form(key="CEAAgentTxnDetails")
-    form.write("Chat with your data!")
-    user_query_CEA = form.text_area(
-        """Try querying the above CEA agent transaction details data in words""",
-        height=30,
-        key="CEAAgentTxnDetails_text",
-    )
-    # when submit button is pressed
-    if form.form_submit_button("Submit"):
-        st.toast(f"Query Submitted - {user_query_CEA}")
-        with st.spinner("Fetching results..."):
-            response_CEA = agent.LLM_query_df(
-                user_query_CEA, df4_filter, agent.system_msg_CEA, flag=False
-            )
-            st.write(response_CEA)
-
-st.divider()
-
-form = st.form(key="ResaleSmartSearch")
-form.markdown("#### 2. ResaleSearch-Your Intelligent Q&A Partner")
-
-user_prompt_search = form.text_area(
-    """Unsure about specific HDB resale terms and conditions, CPF housing grants for resale flats
-    or expenses to prepare when becoming homeowner? Try searching here:\n
-    Sample queries:
-    - What are the details regarding the option fee and option period when purchasing a resale HDB flat?
-    - What are the terms and conditions for obtaining a housing loan from HDB for a resale flat?
-    - Can I cancel my HDB resale application?
-    - What is the cost and coverage of fire insurance for HDB resale flats?
-    - What is the buyer stamp duty for purchasing an HDB resale flat?
-    - What is the maximum household income to qualify for CPF housing grants?
-    """,
-    height=200,
-    key="ResaleSmartSearch_text",
-)
-# When the rephrase query button is pressed
-if form.form_submit_button("Try rephrasing query with AI"):
-    with st.spinner("Generating query for your consideration"):
-        st.write(rag_retrieval.query_rewrite(user_prompt_search, temperature=0.8))
-if form.form_submit_button("Submit"):
-    st.toast(f"Query Submitted - {user_prompt_search}")
-    with st.spinner("Fetching results..."):
-        response, sources = rag_retrieval.retrievalQA(
-            user_prompt_search,
-            rag_retrieval.embeddings_model,
-            rag_retrieval.system_msg_search,
-            rag_retrieval.llm_,
-            similarity_threshold=0.4
-        )
-        st.write(response)
-        st.divider()
-        # if the user query is malicious or unrelated to the subject matter, do nothing
-        if (
-            sources is None
-            or "I am sorry but I don't know" in response
-            or len(sources) == 0
-        ):
-            pass
-        else:
-            with st.expander("*Expand to see sources*"):
-                for i, source in enumerate(sources):
-                    # to prevent streamlit from showing anything between $ signs as Latex when not intended to.
-                    retrieved_context = dict(source)["page_content"].replace("$", "\\$")
-                    st.write(
-                        f"""*Source {i+1}*:  **Page {dict(source)['metadata']['source']}**,\
-                            \n"{retrieved_context}" """
-                    )
-                    st.divider()
-
-form = st.form(key="renochatform")
-form.markdown("#### 3. RenoChat-Your Friendly Renovation Assistant")
-
-user_prompt_chat = form.text_area(
-    """Pose your renovation related queries here and the assistant\
-    will provide you with curated answers sourced from internet.
-    (NB: the assistant has been told not to entertain any\
-    non-renovation related queries) :""",
-    height=200,
-    key="renochatform_text",
-)
-
-if form.form_submit_button("Submit"):
-    st.toast(f"Query Submitted - {user_prompt_chat}")
-    with st.spinner("Fetching results..."):
-        response, memory = chatbot_response(
-            user_prompt_chat, st.session_state["chatbot_memory"]
-        )
-        st.session_state["chatbot_memory"] = memory
-        st.write(response)
+    
+    with st.form(key="chat_assistant"):
+    #form = st.form(key="chat_assistant")
+        st.markdown("#### Your Friendly AI Chat Assistant")
+        user_input = st.text_input(label= "Enter your CCS email address to begin:", key="userid", placeholder="xxxxx@ccs.gov.sg")
+        user_prompt_chat = st.text_area(
+                            """Post your queries here and the assistant\
+                            will provide you with curated answers sourced from internet, where applicable""",
+                            height=200,
+                            key="chat_assistant_text")
+        
+        if st.form_submit_button("Submit"):
+            if user_input is None or '@ccs.gov.sg' not in user_input:
+                st.write("Please input your CCS email address in order to continue...")
+            else:
+                st.toast(f"Query Submitted - {user_prompt_chat}")
+                with st.spinner("Fetching results..."):
+                    response, citation = chatagent_response(query=user_prompt_chat, id=st.session_state.userid)
+                    st.write(response)
+                    if len(citation) > 0:
+                        st.write(citation)

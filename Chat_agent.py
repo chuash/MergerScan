@@ -35,7 +35,7 @@ class State(MessagesState):
 # Defining the Tavily web search tool that is available for use by agent
 def web_search(query:str, topic:Literal['general','news']='general', 
                include_domains:List[str]=None, exclude_domains:List[str]=None,
-               time_range:Literal['day','week','month','year']=None, max_results:int=5, relscore:float=0.7) -> str:
+               time_range:Literal['day','week','month','year']=None, max_results:int=3, relscore:float=0.7) -> str:
     """Sends query to Tavily web search API. Filter and return only the results from Tavily
     with relevance score of at least 0.7 and where raw content is not None."""
     try:
@@ -149,13 +149,15 @@ def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
     """This function controls interaction with the chat agent. It takes in the user
     query and checks for malicious intent. If ok, the query is passed to the langgraph
     model to elicit LLM response."""
-
-    # Safeguard the chatbot from malicious prompt
-    # if prompt is deemed to be malicious, exit function with message
-    if check_for_malicious_intent(client=Groq_client, model=Groq_model, user_message=query) == "Y":
-        return ("Sorry, potentially malicious prompt detected. This request cannot be processed.","")
-    else:
-        try:
+    output = None
+    conn = None
+    try:
+        # Safeguard the chatbot from malicious prompt
+        # if prompt is deemed to be malicious, exit function with message
+        if check_for_malicious_intent(client=Groq_client, model=Groq_model, user_message=query) == "Y":
+            response, citation = ("Sorry, potentially malicious prompt detected. This request cannot be processed.","")
+            output = response
+        else:
             # Specify a thread so that historical conversation within memory can be accessed
             config = {"configurable": {"thread_id": id}}
             input = [HumanMessage(content=f"<incoming-text>{query}</incoming-text>")]
@@ -170,33 +172,33 @@ def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
             else:
                 citation = ""
 
-            # Log into database
-            conn = sqlite3.connect(f'{dbfolder}/data.db')
-            cursor = conn.cursor()
-            # Create table if not exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS agentlogs (
-                    id TEXT,
-                    log TEXT NOT NULL,
-                    timestamp TEXt NOT NULL
-                    )
-                ''')
-            # Insert data
-            cursor.execute("INSERT INTO agentlogs (id, log, timestamp) VALUES (?, ?, ?)", (id,str(output),datetime.now().strftime("%d %b %Y, %H:%M:%S")))
-            conn.commit()
+        # Log into database
+        conn = sqlite3.connect(f'{dbfolder}/data.db')
+        cursor = conn.cursor()
+        # Create table if not exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS agentlogs (
+                id TEXT,
+                log TEXT NOT NULL,
+                timestamp TEXt NOT NULL
+                )
+            ''')
+        # Insert data
+        cursor.execute("INSERT INTO agentlogs (id, log, timestamp) VALUES (?, ?, ?)", (id,str(output),datetime.now().strftime("%d %b %Y, %H:%M:%S")))
+        conn.commit()
             
-            return (response, citation)
+        return (response, citation)
         
-        except MyError as e:
-            logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
-        except sqlite3.Error as e:
-            logger.error(f"Database connection error while executing {os.path.basename(__file__)}: {e}")
-        except (Exception, BaseException) as e:
-            logger.error(f"General error while executing {os.path.basename(__file__)}: {e}")
-        
-        finally:
-            if conn:
-                conn.close()
+    except MyError as e:
+        logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")
+    except sqlite3.Error as e:
+        logger.error(f"Database connection error while executing {os.path.basename(__file__)}: {e}")
+    except (Exception, BaseException) as e:
+        logger.error(f"General error while executing {os.path.basename(__file__)}: {e}")
+    
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
      pass
