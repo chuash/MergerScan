@@ -15,14 +15,14 @@ if not load_dotenv(".env"):
     pass
 
 # Define variables
-Groq_model = os.getenv("GROQ_MODEL_NAME")
-OAI_model = os.getenv("OPENAI_MODEL_NAME")
-Perplexity_model = os.getenv("PERPLEXITY_MODEL_NAME")  
-Groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
-OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
-async_Groq_client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
-async_OAI_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+Groq_model = os.getenv("GROQ_MODEL_NAME")                     
+OAI_model = os.getenv("OPENAI_MODEL_NAME")                   
+Perplexity_model = os.getenv("PERPLEXITY_MODEL_NAME")               
+Groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")   
+OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))                                           
+Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")            
+async_Groq_client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1") 
+async_OAI_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))                                          
 async_Perplexity_client = AsyncOpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
 Chat_Groq_llm = ChatGroq(model=Groq_model, temperature=0,max_retries=1, max_tokens=1024, n=1)  
 Chat_OAI_llm = ChatOpenAI(model=OAI_model, temperature=0,max_retries=1, max_tokens=1024, n=1)
@@ -30,6 +30,7 @@ tempscrappedfolder = 'temp_scraped_data'    # Set the folder name used to tempor
 WIPfolder = 'temp' # Set the folder name used to hold temporary files
 tablename = 'news'    # Set the base tablename for the sqlite database table used to store web scrapped data 
 dbfolder = 'database'
+scrapped_from_date =  '06 Nov 2025'     # Set the date from which news are to be scrapped, in the format day month year, e.g. 01 Jan 2025 or None
                            
 
 # Set up custom exception class

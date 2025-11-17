@@ -1,15 +1,13 @@
 # import libraries
 import os
 import pandas as pd
-from helper_functions.utility import MyError, setup_shared_logger, set_collection_date, tempscrappedfolder
+from helper_functions.utility import MyError, setup_shared_logger, set_collection_date, tempscrappedfolder, scrapped_from_date
 from pathlib import Path
 from scrapers import ACCC_scrapper
 
 # Set up the shared logger
 logger = setup_shared_logger()
 
-# Set the date from which news are to be scrapped, in the format day month year, e.g. 01 Jan 2025 or None
-scrapped_from_date =  '06 Nov 2025'     # or None
 date = set_collection_date(date=scrapped_from_date)
 
 # Create folder used to temporarily store scrapped data, if it does't exist
