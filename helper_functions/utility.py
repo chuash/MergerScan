@@ -15,15 +15,15 @@ if not load_dotenv(".env"):
     pass
 
 # Define variables
-Groq_model = os.getenv("GROQ_MODEL_NAME")                     
-OAI_model = os.getenv("OPENAI_MODEL_NAME")                   
-Perplexity_model = os.getenv("PERPLEXITY_MODEL_NAME")               
-Groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")   
-OAI_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))                                           
-Perplexity_client = OpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")            
-async_Groq_client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1") 
-async_OAI_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))                                          
-async_Perplexity_client = AsyncOpenAI(api_key=os.getenv("PERPLEXITY_API_KEY"), base_url="https://api.perplexity.ai")
+Groq_model = st.secrets['GROQ_MODEL_NAME']                      #os.getenv("GROQ_MODEL_NAME") 
+OAI_model = st.secrets['OPENAI_MODEL_NAME']                     #os.getenv("OPENAI_MODEL_NAME")
+Perplexity_model = st.secrets['PERPLEXITY_MODEL_NAME']              #os.getenv("PERPLEXITY_MODEL_NAME")  
+Groq_client = OpenAI(api_key=st.secrets['GROQ_API_KEY'], base_url="https://api.groq.com/openai/v1")   #os.getenv("GROQ_API_KEY")
+OAI_client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])                                             #os.getenv("OPENAI_API_KEY")
+Perplexity_client = OpenAI(api_key=st.secrets['PERPLEXITY_API_KEY'], base_url="https://api.perplexity.ai")             #os.getenv("PERPLEXITY_API_KEY")
+async_Groq_client = AsyncOpenAI(api_key=st.secrets['GROQ_API_KEY'], base_url="https://api.groq.com/openai/v1")   #os.getenv("GROQ_API_KEY")
+async_OAI_client = AsyncOpenAI(api_key=st.secrets['OPENAI_API_KEY'])                                             #os.getenv("OPENAI_API_KEY")
+async_Perplexity_client = AsyncOpenAI(api_key=st.secrets['PERPLEXITY_API_KEY'], base_url="https://api.perplexity.ai")    #os.getenv("PERPLEXITY_API_KEY")
 Chat_Groq_llm = ChatGroq(model=Groq_model, temperature=0,max_retries=1, max_tokens=1024, n=1)  
 Chat_OAI_llm = ChatOpenAI(model=OAI_model, temperature=0,max_retries=1, max_tokens=1024, n=1)
 tempscrappedfolder = 'temp_scraped_data'    # Set the folder name used to temporarily store scrapped data
