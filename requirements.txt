@@ -150,8 +150,8 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 python-json-logger==3.3.0
 pytz==2025.2
-# pywin32==311
-pywinpty==3.0.0
+# pywin32==311    -- comment off because these are windows libraries, not compatible with streamlit linux environment
+# pywinpty==3.0.0  -- ditto
 PyYAML==6.0.2
 pyzmq==27.1.0
 rank-bm25==0.2.2
