@@ -150,7 +150,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 python-json-logger==3.3.0
 pytz==2025.2
-# pywin32==311    -- comment off because these are windows libraries, not compatible with streamlit linux environment
+# pywin32==311    -- comment off because these are windows API related libraries, not compatible with streamlit's linux environment. Remove comment when need to run API
 # pywinpty==3.0.0  -- ditto
 PyYAML==6.0.2
 pyzmq==27.1.0
