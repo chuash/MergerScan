@@ -172,7 +172,7 @@ def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
             else:
                 citation = ""
 
-        # Log into database
+        # Log into database, for deployment in streamlit community cloud, need to look for online database to store the logs
         conn = sqlite3.connect(f'{dbfolder}/data.db')
         cursor = conn.cursor()
         # Create table if not exists

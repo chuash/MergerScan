@@ -117,6 +117,12 @@ if __name__ == "__main__":
                 logger.info(f"{str(len(combined_df))} articles successfully classified")
             
             # Once done, remove CSV files from temp_scraped_data folder
+            for file_path in directory_path.glob("**/*.csv"):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Successfully removed: {file_path}")
+                except OSError as e:
+                    raise MyError(f"Error removing {file_path}: {e}")
     
     except MyError as e:
         logger.error(f"Error while executing {os.path.basename(__file__)}: {e}")

@@ -145,7 +145,6 @@ with col_topleft:
 with col_topright:
     
     with st.form(key="chat_assistant"):
-    #form = st.form(key="chat_assistant")
         st.markdown("#### Your Friendly AI Chat Assistant")
         user_input = st.text_input(label= "Enter your CCS email address to begin:", key="userid", placeholder="xxxxx@ccs.gov.sg")
         user_prompt_chat = st.text_area(
