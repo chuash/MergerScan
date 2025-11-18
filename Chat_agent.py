@@ -172,7 +172,9 @@ def chatagent_response(query:str, id:str, langgraph:CompiledStateGraph=graph):
             else:
                 citation = ""
 
-        # Log into database, for deployment in streamlit community cloud, need to look for online database to store the logs
+        # Log into database, only works for local deployment as this is a local sql database. 
+        # Doesn't work for deployment in streamlit community cloud, need to look for online database to store the chat logs, if really necessary, 
+        # else can still refer to langsmith for the chat log (retention period 14 days)
         conn = sqlite3.connect(f'{dbfolder}/data.db')
         cursor = conn.cursor()
         # Create table if not exists
