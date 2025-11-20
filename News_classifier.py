@@ -73,9 +73,9 @@ if __name__ == "__main__":
             tablelist = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
             if f'{tablename}' not in [table[0] for table in tablelist]:
                 pass
-        # if there is historical data, check and remove potential duplicates with the data scraped during the most recent run
+        # if there is historical data, check and remove potential duplicates by comparing with the historical data
             else:
-                query = f"SELECT Published_Date, Source, Text FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
+                query = f"SELECT Published_Date, Source, Text FROM {tablename}" # WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename})"
                 past_df = pd.read_sql_query(query, conn)
                 combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Source'].isin(past_df['Source'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
             

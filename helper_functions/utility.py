@@ -30,7 +30,7 @@ tempscrappedfolder = 'temp_scraped_data'    # Set the folder name used to tempor
 WIPfolder = 'temp' # Set the folder name used to hold temporary files
 tablename = 'news'    # Set the base tablename for the sqlite database table used to store web scrapped data 
 dbfolder = 'database'
-scrapped_from_date =  '14 Nov 2025'     # Set the date from which news are to be scrapped, in the format day month year, e.g. 01 Jan 2025 or None
+scrapped_from_date =  '01 Jul 2025'     # Set the date from which news are to be scrapped, in the format day month year, e.g. 01 Jan 2025 or None
                            
 
 # Set up custom exception class

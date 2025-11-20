@@ -15,11 +15,11 @@ logger = setup_shared_logger()
 
 st.title("CCS Merger Scanning Platform")
 
-with st.expander("***Important Note***"):
+with st.expander("***Important Note***", expanded=True):
     st.write(
-    "This tool relies on AI-generated content, which may include inaccuracies or hallucinations. "
-    "Users are advised to independently verify all information and not rely solely on these responses. "
-    "Please cross-check important details through separate sources where necessary. ")
+    "**This tool relies on AI-generated content, which may include inaccuracies or hallucinations.** "
+    "**Users are advised to independently verify all information and not rely solely on these responses.** "
+    "**Please cross-check important details through separate sources where necessary.** ")
 
 # Do not continue if check_password is not True.
 if not check_password():
@@ -40,10 +40,10 @@ def query_data(tablename:str, published_date:str=None, database:str = f'{dbfolde
         conn = sqlite3.connect(database)
         cursor = conn.cursor()
         if published_date is None:
-            sqlquery = f"SELECT * FROM {tablename} WHERE Extracted_Date = (SELECT MAX(Extracted_Date) FROM {tablename}) ORDER BY Published_Date DESC"
+            sqlquery = f"SELECT * FROM {tablename} WHERE Published_Date >= DATE('now','-1 month') ORDER BY Published_Date DESC"
+            
         else:
             sqlquery = f"SELECT * FROM {tablename} WHERE Published_Date >= '{published_date}' ORDER BY Published_Date DESC"
-        #print(sqlquery)
         df = pd.read_sql_query(sqlquery, con=conn)
         return df
     except (Exception, BaseException, sqlite3.Error) as e:
@@ -66,27 +66,29 @@ col_topleft, col_topright = st.columns([0.65,0.35], gap="small",border=True)
 # on the left
 with col_topleft:
     # Divide real estate into 3 columns
-    left_left, left_centre, left_right = st.columns([0.45,0.4,0.15], gap="small")
+    left_left, left_centre, left_right = st.columns([0.55,0.05,0.4], gap="small")
     with left_left:
-        st.date_input("Filter for news articles published after [date]", value=None, key='published_date_filter', format="YYYY-MM-DD")
-    with left_centre:
-        st.button("Filter for merger-related news", key='merger_filter', help='Click to filter for merger-related news classified by AI', type="secondary", on_click=click_merger_filter)
+        st.date_input("Filter news articles from selected publication date onwards. ", value=None, key='published_date_filter', format="YYYY-MM-DD")
+        st.write("***By default, Table 1 shows past news articles published within 1 month from today.***")
     with left_right:
-        st.button("Reset", key='reset_merger_filter', help='Click to see all news', type="primary", on_click=reset_merger_filter)
+        st.button("Filter merger-related news articles", key='merger_filter', type="secondary", on_click=click_merger_filter)
+        st.button("Reset to see all news articles", key='reset_merger_filter', type="primary", on_click=reset_merger_filter)
     
     st.divider()
 
     st.write("### Table 1: News articles")
+    st.write("***Please ONLY select one merger-related (i.e. Merger_Related = 'true') news article, at a time, to view research details***")
 
     # Querying from database table 'news'
     df_base = query_data(tablename=tablename, published_date=st.session_state.published_date_filter)
     # Adding a 'Selected' column for selection
     df_base["Selected"] = False
     # If the "Filter for merger-related news" button is clicked, filter accordingly
-    if st.session_state.merger_filter:
+    if st.session_state.merger_filter_button_clicked:
         df_base = df_base[df_base['Merger_Related'] == 'true']
     # If the value of the cell in "Merger_Related" column is true, highlight cell in green
     df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
+
     edited_df = st.data_editor(
                     df_base_style,
                     column_order= ('Selected','Published_Date', 'Extracted_Date','Merger_Related', 'Text','Merger_Entities','Reasons','Source'),
@@ -102,8 +104,7 @@ with col_topleft:
                     num_rows="fixed",
                     key='news_table'
                 )
-    st.write("***Please only select one news article, at a time, to view research details***")
-
+    
     selected_data = edited_df[edited_df["Selected"]]
     # if the particular record is selected by clicking on one of the checkboxes
     if not selected_data.empty:
@@ -136,7 +137,9 @@ with col_topleft:
             st.write("**Research Results:**")
             st.dataframe(data=pd.DataFrame(json.loads(eval(merged_df[query_option].values[0])[2])['response']),key='research_results_table')
             st.write("**Web Search Urls:**")
-            st.dataframe(data=pd.DataFrame(eval(merged_df[query_option].values[0])[1], columns=['Urls']),
+            temp = pd.DataFrame(eval(merged_df[query_option].values[0])[1], columns=['Urls'])
+            temp.index = temp.index+1
+            st.dataframe(data=temp,
                          column_config={"Urls": st.column_config.LinkColumn(    
                                         help="Click to visit the web search urls")}, key='url_table') 
             
