@@ -43,9 +43,9 @@ class query3_response(BaseModel):
     potential_goods_services_in_Singapore: str = Field(..., description="Captures any goods or services where these merger parties could potentially compete in Singapore, even if they do not currently sell those goods or services here. To indicate 'None', if there is no such assessed potential")
 
 
-async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List[Dict], schema:BaseModel|None = None, searchmode:str="web", temperature:float=0.1, 
+async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List[Dict], schema:BaseModel|None = None, searchmode:str="web", temperature:float=0.0, 
                     maxtokens:int=1024, search_domain:List[str]=[], related_questions:bool=False, presence_penalty:float=0.1, frequency_penalty:float=0.1,
-                    search_classifier:bool=True, search_context:str="medium") -> BaseModel|ChatCompletion:
+                    search_classifier:bool=True, search_context:str="high") -> BaseModel|ChatCompletion:
         """Enables asynchronous access to Perplexity API"""
         try:
             if schema:
@@ -59,7 +59,7 @@ async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List
                 output_json_structure = None
 
             response = await client.chat.completions.create(
-                model=model,
+                model=model,  # use sonar-pro
                 messages=prompt_messages,
                 extra_body={
                     "search_mode": searchmode,
@@ -70,7 +70,7 @@ async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List
                     #"presence_penalty": presence_penalty,
                     "frequency_penalty": frequency_penalty,
                     "enable_search_classifier": search_classifier,
-                    "web_search_options": {"search_context_size": search_context},
+                    "web_search_options": {"search_context_size": search_context},  
                     "max_search_results": 10},
                 response_format = output_json_structure)
             return response

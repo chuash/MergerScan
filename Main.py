@@ -15,11 +15,11 @@ logger = setup_shared_logger()
 
 st.title("CCS Merger Scanning Platform")
 
-with st.expander("***Important Note***", expanded=True):
+with st.expander("**Important Note:**", expanded=True):
     st.write(
-    "**This tool relies on AI-generated content, which may include inaccuracies or hallucinations.** "
-    "**Users are advised to independently verify all information and not rely solely on these responses.** "
-    "**Please cross-check important details through separate sources where necessary.** ")
+    "***This tool relies on AI-generated content, which may include inaccuracies or hallucinations.*** "
+    "***Users are advised to independently verify all information and not rely solely on these responses.*** "
+    "***Please cross-check important details through separate sources where necessary.*** ")
 
 # Do not continue if check_password is not True.
 if not check_password():
@@ -68,11 +68,11 @@ with col_topleft:
     # Divide real estate into 3 columns
     left_left, left_centre, left_right = st.columns([0.55,0.05,0.4], gap="small")
     with left_left:
-        st.date_input("Filter news articles from selected publication date onwards. ", value=None, key='published_date_filter', format="YYYY-MM-DD")
-        st.write("***By default, Table 1 shows past news articles published within 1 month from today.***")
+        st.date_input("**Filter news articles from selected publication date onwards** ", value=None, key='published_date_filter', format="YYYY-MM-DD")
+        st.write("By default, Table 1 shows past news articles published within 1 month from today.")
     with left_right:
-        st.button("Filter merger-related news articles", key='merger_filter', type="secondary", on_click=click_merger_filter)
-        st.button("Reset to see all news articles", key='reset_merger_filter', type="primary", on_click=reset_merger_filter)
+        st.button("**Filter merger-related news articles**", key='merger_filter', type="secondary", on_click=click_merger_filter)
+        st.button("**Reset to see all news articles**", key='reset_merger_filter', type="primary", on_click=reset_merger_filter)
     
     st.divider()
 
@@ -87,7 +87,7 @@ with col_topleft:
     if st.session_state.merger_filter_button_clicked:
         df_base = df_base[df_base['Merger_Related'] == 'true']
     # If the value of the cell in "Merger_Related" column is true, highlight cell in green
-    df_base_style = df_base.style.map(lambda x: f"background-color: {'green' if x=='true' else ''}", subset='Merger_Related')
+    df_base_style = df_base.style.map(lambda x: f"background-color: {'powderBlue' if x=='true' else ''}", subset='Merger_Related')
 
     edited_df = st.data_editor(
                     df_base_style,

@@ -92,7 +92,7 @@ def count_tokens(text:str, model:str="gpt-4o-mini")->int:
 
 
 # Set up synchronous LLM API response
-def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:BaseModel|None=None, maxtokens:int=1024, 
+def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:BaseModel|None=None, maxtokens:int=2048, 
                store:bool=False, temperature:int=0, delay_in_seconds:float=0.0)-> BaseModel|ChatCompletion:
     """ Takes in an input text or query, sends to selected LLM for a response"""
     try:
@@ -143,7 +143,7 @@ def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:Bas
 
 # Set up asynchronous LLM API response
 async def async_llm_output(client:Groq|OpenAI, model:str, prompt_messages:List[Dict], schema:BaseModel|None, 
-                           maxtokens:int=1024, store:bool=False, temperature:int=0)-> BaseModel|ChatCompletion:
+                           maxtokens:int=2048, store:bool=False, temperature:int=0)-> BaseModel|ChatCompletion:
     try:
         if schema:
                 output_json_structure = {"type": "json_schema",
