@@ -81,13 +81,13 @@ async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List
             raise MyError(f"async_Perplexity_search function error: {e}, while processing text '{prompt_messages[1]['content']}'")
 
 async def websearch(chunk:List)-> List[Any]:
-    """Processes a list of Perplexity requests concurrently."""
+    """Processes a list of Perplexity requests asynchronously."""
     tasks = [async_perplexity_search(client=async_Perplexity_client, model=Perplexity_model, prompt_messages=p, schema=None) for p in chunk]
     results = await tqdm_asyncio.gather(*tasks, desc="Processing tasks")
     return results
 
 async def structured_output(chunk:List)-> List[Any]:
-    """Processes a list of LLM requests concurrently."""
+    """Processes a list of LLM requests asynchronously."""
     tasks = [async_llm_output(client=async_OAI_client, model=OAI_model, prompt_messages=p, schema=query1_response) for p in chunk]
     results = await tqdm_asyncio.gather(*tasks, desc="Processing tasks")
     return results
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             df = pd.read_sql_query(sqlquery, con=conn)
             df1 = df[(df['Merger_Related']=='true') & (df['Merger_Entities']!='')].reset_index(inplace=False).drop('index', axis=1)
         
-        if len(df1) == 0:  #skip if there is no data
+        if len(df1) == 0:  #skip if there is no merger related news article
             logger.warning("No new merger related article to conduct web search for")
         else:
         #2) Extract the corresponding news source - entities pairs
@@ -139,8 +139,10 @@ if __name__ == "__main__":
             else:
         #3a) Generate query 1 user prompt messages for each of the identified merger-related news , using the query 1 text supplied by user
                 query1_list = []
+                
                 for item in org_entities:
                     query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {Query1_user_input}")
+                
                 query1_prompt_message_list = prompt_generator(data_list=query1_list, sys_msg=websearch_raw_sys_msg)
                 logger.info(f"List of {len(query1_prompt_message_list)} query 1 prompt messages successfully generated.")
             
@@ -149,6 +151,7 @@ if __name__ == "__main__":
                 # Perplexity Tier is upgraded, can increase chunk size and do away with pauses
                 query1_websearch_results = asyncio.run(main(data_list=query1_prompt_message_list, func=websearch, chunk_size=6, pause_duration=1))
                 logger.info("Web search for query 1 successfully executed. Preparing to parse Perplexity responses via another LLM.")
+                
                 query1_struct_prompt_message_list = prompt_generator(data_list=[strip_markdown(item.choices[0].message.content) for item in query1_websearch_results], sys_msg=query1_structoutput_sys_msg)
                 struct_query1_websearch_results = asyncio.run(main(data_list=query1_struct_prompt_message_list,func=structured_output, chunk_size=10, pause_duration=1))  # can use larger chunks and shorter duration subject to limit of 500 RPM
                 logger.info("Web search with structured output for query 1 successfully executed")

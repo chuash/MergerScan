@@ -11,6 +11,7 @@ from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 from typing import Dict, List, Literal
 
+# Load environment variables
 if not load_dotenv(".env"):
     pass
 
@@ -43,12 +44,10 @@ class MyError(Exception):
         return self.value
 
 
-# Set up logger
+# Set up shared logger instance for the entire application.
 def setup_shared_logger(log_file_name="application.log"):
-    """
-    Sets up a shared logger instance for the entire application.
-    """
-    # Create the logger
+
+    # Create the logger with name "shared_app_logger" if it doesn's exist
     logger = logging.getLogger('shared_app_logger')
     # Set the desired logging level
     logger.setLevel(logging.INFO)
@@ -71,9 +70,8 @@ def setup_shared_logger(log_file_name="application.log"):
 
 # Set scraper data collection date
 def set_collection_date(date:str=None, lookback:int=2):
-    """Allows user to set the date from which to scrape from. If neither the date nor the lookback 
-    period is set, by default, the date is set to two days prior. if the lookback period is set, 
-    the date is set to x days prior, where x is the lookback period.  
+    """Allows user to set the date to scrape from. If the date is set, the set date takes priority, else
+    the date is set to x days prior, where x is the lookback period and which defaults to 2 days   
     """
     if date is not None:
         return date
@@ -83,9 +81,8 @@ def set_collection_date(date:str=None, lookback:int=2):
 
 
 def count_tokens(text:str, model:str="gpt-4o-mini")->int:
-    """This function is for calculating the tokens given the input message
-    This is a simplified implementation that is good enough for a rough
-    estimation when using openai models.
+    """This function is for calculating the tokens given the input message. This is a simplified implementation 
+    that is good enough for a rough estimation when using OpenAI models.
     """
     encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
@@ -94,12 +91,13 @@ def count_tokens(text:str, model:str="gpt-4o-mini")->int:
 # Set up synchronous LLM API response
 def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:BaseModel|None=None, maxtokens:int=2048, 
                store:bool=False, temperature:int=0, delay_in_seconds:float=0.0)-> BaseModel|ChatCompletion:
-    """ Takes in an input text or query, sends to selected LLM for a response"""
+    """ Takes in an input text or query and sends to selected LLM API to get response"""
     try:
-         # Introduce time delay so as to keep within rate limit for LLM API request.
+         # Introduce time delay, if necessary, so as to keep within rate limit for LLM API request.
         if delay_in_seconds > 0:
              time.sleep(delay_in_seconds)
-        
+
+        # The case when LLM response is expected to follow a particular schema
         if schema is not None:
             response = client.responses.parse(
                 model=model,
@@ -118,6 +116,7 @@ def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:Bas
                 text_format=schema
                 )
         else:
+             # The case when LLM response is just normal string
              response = client.responses.parse(
                 model=model,
                 input=[
@@ -145,6 +144,7 @@ def llm_output(client:Groq|OpenAI, model:str, sys_msg:str, input:str, schema:Bas
 async def async_llm_output(client:Groq|OpenAI, model:str, prompt_messages:List[Dict], schema:BaseModel|None, 
                            maxtokens:int=2048, store:bool=False, temperature:int=0)-> BaseModel|ChatCompletion:
     try:
+        # The case when LLM response is expected to follow a particular schema
         if schema:
                 output_json_structure = {"type": "json_schema",
                                          "json_schema": {

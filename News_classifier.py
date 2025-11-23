@@ -26,7 +26,7 @@ Path(dbfolder).mkdir(parents=True, exist_ok=True)
 # Create temp folder, if it does't exist
 Path(WIPfolder).mkdir(parents=True, exist_ok=True)
 
-
+# Set up structured LLM output schema
 class classifier_response(BaseModel):
     """Pydantic response class to ensure that LLM always responds in the same format."""
     Reasons: str = Field(..., description="A concise yet precise reasoning and justification as to whether given text is merger and acquisition related.")
@@ -35,7 +35,7 @@ class classifier_response(BaseModel):
 
 
 async def output(chunk:List)-> List[Any]:
-    """Processes a list of LLM requests concurrently."""
+    """Processes a list of LLM requests asynchronously."""
     tasks = [async_llm_output(client=async_OAI_client, model=OAI_model, prompt_messages=p, schema=classifier_response) for p in chunk]
     results = await tqdm_asyncio.gather(*tasks, desc="Processing tasks")
     return results
@@ -44,8 +44,8 @@ async def output(chunk:List)-> List[Any]:
 if __name__ == "__main__":
     dfs = []
     try:
-        # 1) Read in the CSV files in the scraped_data folder
-        # Define the path to the folder containing the CSV files
+        # 1) Read in the CSV files in the temp_scraped_data folder
+        # Define the path to the temp_scraped_data folder
         directory_path = Path(tempscrappedfolder).absolute()
 
         # Find all CSV files in the specified folder and read them into DataFrames
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             conn = sqlite3.connect(f'{dbfolder}/data.db')
             cursor = conn.cursor()
 
-        # Check if the database table containing the scrapped data and relevant information exists
+        # Check if the database table containing the historical scrapped news data and relevant information exists
             tablelist = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
             if f'{tablename}' not in [table[0] for table in tablelist]:
                 pass
@@ -79,15 +79,15 @@ if __name__ == "__main__":
                 past_df = pd.read_sql_query(query, conn)
                 combined_df = combined_df[~((combined_df['Text'].isin(past_df['Text'])) & (combined_df['Source'].isin(past_df['Source'])) & (combined_df['Published_Date'].isin(past_df['Published_Date'])))]
             
-            if len(combined_df) == 0:  #skip if there is no data
-                    logger.warning("No new article to be classified")
+            if len(combined_df) == 0:  #skip if there is no news article after deduplication
+                    logger.warning("No news article to be classified")
             else:
             # 3) Pass the text in each data point in the combined DataFrame to LLM to decide if the text is related to merger and acquisition, and if so, extract the entities involved
             
             # Check the number of data points, for small dataset, to save money, use free version of Groq models (subject to rate limit capped at 30 RPM).
             # For larger dataset, use OpenAI (subject to rate limit capped at 500 RPM)
                 if len(combined_df) <= 100:  # time taken around 4min
-            # Using Groq
+            # Use Groq API
             # As meta-llama/llama-4-scout-17b-16e-instruct is subject to rate limits: 30(RPM), 1K(RPD), 30K(TPM), 500K(TPD), need to introduce time delays to ensure wont overshoot limit
                     rate_limit_per_minute = 30
                     delay = (60.0 / rate_limit_per_minute)*0.8
@@ -95,14 +95,14 @@ if __name__ == "__main__":
                                                         sys_msg=classifier_sys_msg, input=x['Text'], schema=classifier_response, 
                                                         delay_in_seconds=delay).output_text), axis=1)
                 else:
-            # Using OpenAI
+            # Use OpenAI API
             # gpt-4o-mini (Tier 1) is subject to rate limits : 500 (RPM), 10K (RPD), 200L (TPM).                     
                     prompt_message_list = prompt_generator(data_list=combined_df['Text'].to_list(), sys_msg=classifier_sys_msg)
                     classifier_results = asyncio.run(main(data_list=prompt_message_list,func=output, chunk_size=10, pause_duration=1)) # set the chunksize and duration to balance speed and the 500RPM openai limit
                     combined_df['response'] = [item.choices[0].message.content for item in classifier_results]
             
             # Expand the 'response' column
-            # convert to dict if necessary, before expanding the column
+            # convert to dict before expanding the column
                 combined_df['response'] = combined_df['response'].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
                 expanded_response = combined_df['response'].apply(pd.Series)
             # Combine with the original DataFrame

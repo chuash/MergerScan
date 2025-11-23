@@ -1,4 +1,4 @@
-# import libraries
+# Import relevant libraries
 import os
 import pandas as pd
 from helper_functions.utility import MyError, setup_shared_logger, set_collection_date, tempscrappedfolder, scrapped_from_date

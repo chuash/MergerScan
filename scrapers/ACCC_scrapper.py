@@ -1,4 +1,4 @@
-# Initialising relevant libraries
+# Import relevant libraries
 import pandas as pd
 import logging, os, random, requests
 from bs4 import BeautifulSoup
@@ -34,8 +34,8 @@ def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_us
     try:
         i = 0
         while True:
-            # Start from the first page of ACCC media release site ,which also contains the most recent news release
-            url = f"https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&view_args=accc_news&items_per_page=25&page={i}"   #https://www.accc.gov.au/news-centre?type=accc_news&items_per_page=25&view_args=accc_news&page=1
+            # Start from the first page of ACCC media release site ,which also contains the most recent news releases.
+            url = f"https://www.accc.gov.au/news-centre?type=accc_news&layout=full_width&view_args=accc_news&items_per_page=25&page={i}" 
             response = requests.get(url, headers=headers)
             # raises error in the event of bad responses
             response.raise_for_status()
@@ -57,8 +57,8 @@ def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_us
             news_extract = [item[0]|item[1] for item in zip(date_component,text_component)]
             listing.extend(news_extract)
 
-            # If the last published date on the page is still after the user input date, then continue to the next page
-            # Else stop if the last published date is earlier
+            # If the last published date on the page is still more recent than the user input date, then continue to the next page
+            # Else stop if the last published date on the page is already earlier than user input date
             if datetime.strptime(date_component[-1]['Published_Date'], '%d %b %Y') >= datetime.strptime(fromdate, '%d %b %Y'):
                 i = i+1
             else:
@@ -66,7 +66,7 @@ def get_ACCC_press_release(fromdate: str, folder:str,  user_agents:List[str]=_us
 
         # convert to dataframe
         df= pd.DataFrame(listing)
-        # Filter for all news listing after the specified date
+        # Filter for all news listings with published dates more recent than the specified date
         df= df[pd.to_datetime(df['Published_Date']) >= datetime.strptime(fromdate, '%d %b %Y')]
         if len(df) == 0:
             logger.info(f"No media releases dated from '{fromdate}' downloaded from ACCC")
