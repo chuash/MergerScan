@@ -4,7 +4,8 @@
 __pycache__/
 
 # Jupyter Notebook
-#.ipynb_checkpoints
+.ipynb_checkpoints
+*.ipynb
 
 # Others
 *.csv

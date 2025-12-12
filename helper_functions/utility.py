@@ -3,6 +3,7 @@ import hmac, logging, openai, os, time, tiktoken
 import streamlit as st
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from google import genai
 from groq import Groq
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
@@ -16,10 +17,12 @@ if not load_dotenv(".env"):
     pass
 
 # Define variables
-Groq_model = st.secrets['GROQ_MODEL_NAME']                      #os.getenv("GROQ_MODEL_NAME") 
+Groq_model = st.secrets['GROQ_MODEL_NAME']                      #os.getenv("GROQ_MODEL_NAME")
+Gemini_model = st.secrets['GEMINI_MODEL_NAME']                  #os.getenv("GEMINI_MODEL_NAME")    
 OAI_model = st.secrets['OPENAI_MODEL_NAME']                     #os.getenv("OPENAI_MODEL_NAME")
 Perplexity_model = st.secrets['PERPLEXITY_MODEL_NAME']              #os.getenv("PERPLEXITY_MODEL_NAME")  
 Groq_client = OpenAI(api_key=st.secrets['GROQ_API_KEY'], base_url="https://api.groq.com/openai/v1")   #os.getenv("GROQ_API_KEY")
+Google_client = genai.Client()
 OAI_client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])                                             #os.getenv("OPENAI_API_KEY")
 Perplexity_client = OpenAI(api_key=st.secrets['PERPLEXITY_API_KEY'], base_url="https://api.perplexity.ai")             #os.getenv("PERPLEXITY_API_KEY")
 async_Groq_client = AsyncOpenAI(api_key=st.secrets['GROQ_API_KEY'], base_url="https://api.groq.com/openai/v1")   #os.getenv("GROQ_API_KEY")
@@ -31,7 +34,7 @@ tempscrappedfolder = 'temp_scraped_data'    # Set the folder name used to tempor
 WIPfolder = 'temp' # Set the folder name used to hold temporary files
 tablename = 'news'    # Set the base tablename for the sqlite database table used to store web scrapped data 
 dbfolder = 'database'
-scrapped_from_date =  '01 Jul 2025'     # Set the date from which news are to be scrapped, in the format day month year, e.g. 01 Jan 2025 or None
+scrapped_from_date =  '18 Nov 2025'     # Set the date from which news are to be scrapped, in the format day month year, e.g. 01 Jan 2025 or None
                            
 
 # Set up custom exception class

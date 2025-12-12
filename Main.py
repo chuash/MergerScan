@@ -86,8 +86,8 @@ with col_topleft:
     # If the "Filter for merger-related news" button is clicked, filter accordingly
     if st.session_state.merger_filter_button_clicked:
         df_base = df_base[df_base['Merger_Related'] == 'true']
-    # If the value of the cell in "Merger_Related" column is true, highlight cell in green
-    df_base_style = df_base.style.map(lambda x: f"background-color: {'powderBlue' if x=='true' else ''}", subset='Merger_Related')
+    # If the value of the cell in "Merger_Related" column is true, highlight cell in blue
+    df_base_style = df_base.style.map(lambda x: f"background-color: {'powderBlue' if x =='true' else ''}", subset='Merger_Related')
 
     edited_df = st.data_editor(
                     df_base_style,

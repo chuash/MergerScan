@@ -32,19 +32,19 @@ class query1_response(BaseModel):
     """Pydantic response class to ensure that LLM always responds in the same format."""
     response: List[query1_base_response] = Field(..., description="Captures the search result for each named merger party involved in the merger case")
 
-class query2_response(BaseModel):
-    """Pydantic response class to ensure that LLM always responds in the same format."""
-    explanation: str = Field(..., description="Explanation to justify response given for list of common goods and services in Singapore")
-    common_goods_services_in_Singapore: str = Field(..., description="Captures only the common goods and services (including the respective brand names), if any, that all merger parties sell or provide in Singapore. To indicate 'None', if there is no common goods or services.")
+#class query2_response(BaseModel):
+#    """Pydantic response class to ensure that LLM always responds in the same format."""
+#    explanation: str = Field(..., description="Explanation to justify response given for list of common goods and services in Singapore")
+#    common_goods_services_in_Singapore: str = Field(..., description="Captures only the common goods and services (including the respective brand names), if any, that all merger parties sell or provide in Singapore. To indicate 'None', if there is no common goods or services.")
     
-class query3_response(BaseModel):
-    """Pydantic response class to ensure that LLM always responds in the same format."""
-    explanation: str = Field(..., description="Detailed explanation, with citations given by [citation source number], why the merger parties could be potential competitors (e.g., similar products overseas, capability, or actual plans to enter the market)") 
-    potential_goods_services_in_Singapore: str = Field(..., description="Captures any goods or services where these merger parties could potentially compete in Singapore, even if they do not currently sell those goods or services here. To indicate 'None', if there is no such assessed potential")
+#class query3_response(BaseModel):
+#    """Pydantic response class to ensure that LLM always responds in the same format."""
+#    explanation: str = Field(..., description="Detailed explanation, with citations given by [citation source number], why the merger parties could be potential competitors (e.g., similar products overseas, capability, or actual plans to enter the market)") 
+#    potential_goods_services_in_Singapore: str = Field(..., description="Captures any goods or services where these merger parties could potentially compete in Singapore, even if they do not currently sell those goods or services here. To indicate 'None', if there is no such assessed potential")
 
 
 async def async_perplexity_search(client:OpenAI, model:str, prompt_messages:List[Dict], schema:BaseModel|None = None, searchmode:str="web", temperature:float=0.0, 
-                    maxtokens:int=1024, search_domain:List[str]=[], related_questions:bool=False, presence_penalty:float=0.1, frequency_penalty:float=0.1,
+                    maxtokens:int=4096, search_domain:List[str]=[], related_questions:bool=False, presence_penalty:float=0.1, frequency_penalty:float=0.1,
                     search_classifier:bool=True, search_context:str="high") -> BaseModel|ChatCompletion:
         """Enables asynchronous access to Perplexity API"""
         try:
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                 query1_list = []
                 
                 for item in org_entities:
-                    query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {Query1_user_input}")
+                    query1_list.append(f"The following parties ({item[1]}) are involved in the same merger case handled by {item[0]}. {Query1_user_input} Avoid markdown in reply.")
                 
                 query1_prompt_message_list = prompt_generator(data_list=query1_list, sys_msg=websearch_raw_sys_msg)
                 logger.info(f"List of {len(query1_prompt_message_list)} query 1 prompt messages successfully generated.")
